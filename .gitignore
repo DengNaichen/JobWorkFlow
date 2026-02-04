@@ -1,0 +1,31 @@
+# Node
+node_modules/
+
+# Environment files
+.env
+.env.*
+
+# Obsidian workspace/cache
+.obsidian/
+.obsidian/plugins/
+.obsidian/workspace
+.obsidian/workspace.json
+.obsidian/cache
+
+# macOS clutter
+.DS_Store
+
+# Logs
+*.log
+
+# Build/output artifacts
+*.aux
+*.out
+*.synctex.gz
+*.pdf
+
+# Resume exports
+resume/
+resume.*
+data/applications/**/resume.pdf
+data/applications/**/cover-letter.pdf

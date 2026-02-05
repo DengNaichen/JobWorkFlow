@@ -1,5 +1,6 @@
 # Node
 node_modules/
+/.venv/
 
 # Environment files
 .env
@@ -24,8 +25,22 @@ node_modules/
 *.synctex.gz
 *.pdf
 
+# MCP binaries
+mcp-server/kaka-job-scout
+mcp-server/mcp-server
+
 # Resume exports
 resume/
 resume.*
 data/applications/**/resume.pdf
 data/applications/**/cover-letter.pdf
+
+# Sensitive data (PII / private content)
+data/capture/
+data/capture/jobs.db
+data/applications/
+data/templates/full_resume.md
+data/templates/resume_skeleton.tex
+trackers/*.md
+!trackers/template.md
+!trackers/Job Application.md

@@ -99,33 +99,3 @@ cover_letter_path: data/applications/%s/cover/cover-letter.pdf
 
 	return os.WriteFile(filePath, []byte(content), 0644)
 }
-
-func resolveBaseDir() string {
-	if env := os.Getenv("JOBWORKFLOW_ROOT"); env != "" {
-		return env
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "."
-	}
-	if hasRepoLayout(cwd) {
-		return cwd
-	}
-	parent := filepath.Dir(cwd)
-	if hasRepoLayout(parent) {
-		return parent
-	}
-
-	return cwd
-}
-
-func hasRepoLayout(dir string) bool {
-	if _, err := os.Stat(filepath.Join(dir, "trackers")); err != nil {
-		return false
-	}
-	if _, err := os.Stat(filepath.Join(dir, "data")); err != nil {
-		return false
-	}
-	return true
-}

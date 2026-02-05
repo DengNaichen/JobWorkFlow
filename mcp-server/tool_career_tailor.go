@@ -53,3 +53,8 @@ func registerCareerTailor(s *server.MCPServer) {
 		return mcp.NewToolResultText(result), nil
 	})
 }
+
+func runCareerTailor(trackerPath string, compile, force bool, pdflatex string) (string, error) {
+	// TODO: implement career tailor logic
+	return "career_tailor not yet implemented", nil
+}

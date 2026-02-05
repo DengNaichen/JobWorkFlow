@@ -1,0 +1,111 @@
+\documentclass[letterpaper,11pt]{article}
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+% --- Adjust margins ---
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+% --- Color Definitions ---
+\definecolor{ThemeBlue}{RGB}{28, 57, 187}
+% --- Sections formatting ---
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large\color{ThemeBlue}
+}{}{0em}{}[\color{ThemeBlue}\titlerule \vspace{-5pt}]
+% --- Custom commands ---
+\newcommand{\resumeItem}[1]{
+  \item\small{#1 \vspace{-2pt}}
+}
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+  \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+    \textbf{#1} & #2 \\
+    \textit{\small #3} & \textit{\small #4} \\
+  \end{tabular*}\vspace{-7pt}
+}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+%-------------------------------------------
+%%%%%%  CV STARTS HERE  %%%%%%%%%%%%%%%%%%%%%
+%-------------------------------------------
+\begin{document}
+%----------HEADING----------
+\begin{center}
+  \textbf{\Huge \scshape \color{ThemeBlue} <Your Name>} \\ \vspace{2pt}
+  \small
+  +1 (555) 555-5555 $|$
+  \href{mailto:you@example.com}{\underline{you@example.com}} $|$
+  \href{https://www.linkedin.com/in/your-profile}{\underline{LinkedIn}} $|$
+  \href{https://github.com/your-github}{\underline{GitHub}} $|$
+  Your City, Your Country
+\end{center}
+%-----------EDUCATION-----------
+\section{Education}
+\resumeSubHeadingListStart
+  \resumeSubheading
+    {University Name}{City, Country}
+    {Degree Name}{Start -- End}
+  \resumeSubheading
+    {University Name}{City, Country}
+    {Degree Name}{Start -- End}
+\resumeSubHeadingListEnd
+%-----------SKILLS-----------
+\section{Technical Skills}
+\begin{itemize}[leftmargin=0.15in, label={}]
+    \small{
+        \item{
+            \textbf{Languages}{: Python, SQL, Go, TypeScript, CUDA} \\
+            \textbf{Backend Frameworks}{: FastAPI, Pydantic, SQLAlchemy, AsyncIO, Pytest} \\
+            \textbf{Data \& Database}{: PostgreSQL, pgvector, Redis, Neo4j, Supabase} \\
+            \textbf{AI \& Machine Learning}{: PyTorch, LLamaIndex, LangChain, RAG Pipelines, NumPy, Pandas} \\
+            \textbf{DevOps \& Tools}{: Docker, GitHub Actions, Google Cloud Platform (Cloud Run), Git}
+        }
+    }
+\end{itemize}
+
+%-----------PROJECT EXPERIENCE-----------
+\section{Project Experience}
+\resumeSubHeadingListStart
+  \resumeSubheading
+    {PROJECT-NAME-PLACEHOLDER} {DATES-PLACEHOLDER}
+    {ROLE-PLACEHOLDER}{}
+  \resumeItemListStart
+    \resumeItem{PROJECT-BULLET-POINT-1}
+    \resumeItem{PROJECT-BULLET-POINT-2}
+  \resumeItemListEnd
+\resumeSubHeadingListEnd
+
+%-----------WORK EXPERIENCE-----------
+\section{Work Experience}
+\resumeSubHeadingListStart
+  \resumeSubheading
+    {COMPANY-NAME-PLACEHOLDER}{LOCATION-PLACEHOLDER}
+    {ROLE-PLACEHOLDER}{DATES-PLACEHOLDER}
+  \resumeItemListStart
+    \resumeItem{WORK-BULLET-POINT-1}
+    \resumeItem{WORK-BULLET-POINT-2}
+  \resumeItemListEnd
+\resumeSubHeadingListEnd
+
+\end{document}

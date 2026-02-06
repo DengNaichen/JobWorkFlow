@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-JOB_URL_ID_RE = re.compile(r"/jobs/view/(\\d+)")
+JOB_URL_ID_RE = re.compile(r"/jobs/view/(\d+)")
 
 
 def parse_args():

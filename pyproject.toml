@@ -1,0 +1,56 @@
+[project]
+name = "jobworkflow"
+version = "0.1.0"
+description = "Self-hosted job operations pipeline for technical job search"
+requires-python = ">=3.11"
+dependencies = [
+    # MCP Server dependencies
+    "mcp>=1.0.0",
+    "pydantic>=2.0.0",
+    
+    # JobSpy and data processing dependencies
+    "python-jobspy>=1.1.82",
+    "pandas>=2.3.3",
+    "numpy>=1.26.3",
+    
+    # Utilities
+    "python-frontmatter>=1.1.0",
+    "python-dateutil>=2.9.0",
+    "PyYAML>=6.0.3",
+    "requests>=2.32.5",
+    "beautifulsoup4>=4.14.3",
+    "markdownify>=0.13.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit>=4.1.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "hypothesis>=6.0.0",
+    "ruff>=0.9.6",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.1.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "hypothesis>=6.0.0",
+    "ruff>=0.9.6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mcp-server-python"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

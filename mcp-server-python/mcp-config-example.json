@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "jobworkflow": {
+      "command": "/absolute/path/to/JobWorkFlow/.venv/bin/python",
+      "args": [
+        "/absolute/path/to/JobWorkFlow/mcp-server-python/server.py"
+      ],
+      "env": {
+        "JOBWORKFLOW_DB": "/absolute/path/to/JobWorkFlow/data/capture/jobs.db",
+        "JOBWORKFLOW_LOG_LEVEL": "INFO",
+        "JOBWORKFLOW_LOG_FILE": "/absolute/path/to/JobWorkFlow/logs/mcp-server.log"
+      }
+    }
+  }
+}

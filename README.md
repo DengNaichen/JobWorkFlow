@@ -17,33 +17,32 @@ No hosted backend is required. Each user runs it in their own environment.
 - Execution model: MCP tools as the execution layer
 - Strategy model: agent prompt/skills as the policy layer
 
-## Current Pipeline
+## Pipeline
 
 1. `scripts/jobspy_batch_run.py` scrapes roles (default LinkedIn) and imports them into `data/capture/jobs.db` with status `new`.
 2. MCP `bulk_read_new_jobs` (read-only) fetches jobs in `new` in batches (for example, 50 at a time).
-3. LLM triage (policy layer) evaluates fit and drives outcomes per job (`shortlist`, `reviewed`, `reject`), then MCP `bulk_update_job_status` persists **DB status only** in this step (no tracker creation).
-4. MCP `initialize_shortlist_trackers` reads `status=shortlist` and creates tracker files linked to each application workspace.
+3. LLM triage (policy layer) evaluates fit and drives outcomes per job (`shortlist`, `reviewed`, `reject`), then MCP `bulk_update_job_status` (planned) persists **DB status only** in this step (no tracker creation).
+4. MCP `initialize_shortlist_trackers` (implemented) reads `status=shortlist` and creates tracker files linked to each application workspace.
 5. **Resume Tailoring (two-phase)**:
 
   - LLM rewrites bullets in `resume.tex` from tracker JD + profile context (`ai_context.md`), and must fully replace placeholders;
 
-  - MCP `career_tailor` compiles and validates the PDF. If rewrite/validation fails, the item is moved back to `reviewed` with an error note for retry.
+  - MCP `career_tailor` (planned) compiles and validates the PDF. If rewrite/validation fails, the item is moved back to `reviewed` with an error note for retry.
 
-6. **Finalization (commit/close-loop)**: after compile passes, MCP `finalize_resume_batch` (planned) performs a single write-back step:
+6. **Finalization (commit/close-loop)**: after compile passes, MCP `finalize_resume_batch` (implemented) performs a single write-back step:
   - updates DB status to `resume_written` and stores audit fields (`resume_pdf_path`, `resume_written_at`, `run_id`, `attempt_count`, `last_error`);
   - syncs tracker frontmatter status to `Resume Written`;
   - if any write fails, job stays in `reviewed` with `last_error` set for retry.
 
 ### Tool Mapping (Target)
 
-- Read queue (read-only): `bulk_read_new_jobs` (planned)
+- Read queue (read-only): `bulk_read_new_jobs` (implemented)
 - Filtering decision (policy): LLM triage
-- Batch DB write-back: `bulk_update_job_status` (planned)
-- Tracker creation from shortlist: `initialize_shortlist_trackers` (planned)
-- Resume workspace + compile: `career_tailor`
-- Commit resume result: `finalize_resume_batch` (planned)
-- Tracker status update: `update_tracker_status`
-- Batch DB status update: `update_jobs_status`
+- Batch DB write-back: `bulk_update_job_status` (implemented)
+- Tracker creation from shortlist: `initialize_shortlist_trackers` (implemented)
+- Resume workspace + compile: `career_tailor` (planned)
+- Commit resume result: `finalize_resume_batch` (implemented)
+- Tracker status update: `update_tracker_status` (implemented)
 
 ## Status Model
 
@@ -66,11 +65,12 @@ No hosted backend is required. Each user runs it in their own environment.
 ## Guardrails
 
 - Implemented now:
+  - `bulk_read_new_jobs` supports validated, read-only batch retrieval with cursor-based pagination.
+- Target next:
   - `career_tailor` compile step fails if placeholders remain in `resume.tex`.
   - `update_tracker_status` blocks `Resume Written` when:
     - `resume.pdf` is missing
     - `resume.tex` still contains placeholders
-- Target next:
   - Finalization writes DB + tracker in one commit step (DB remains SSOT).
   - Any finalize failure falls back to `reviewed` with `last_error` for retry.
   - Automation selection is driven by DB status only; tracker is board projection.
@@ -78,7 +78,51 @@ No hosted backend is required. Each user runs it in their own environment.
 ## Requirements
 
 - Python 3.11+
-- Go (for MCP server build/runtime)
+- MCP Python runtime (`mcp` SDK)
 - SQLite
 - LaTeX (`pdflatex`) if PDF compilation is needed
 - Obsidian + Dataview plugin for dashboard view
+
+## MCP Server Setup
+
+The MCP server provides tools for JobWorkFlow operations:
+- `bulk_read_new_jobs`: Read-only batch retrieval of jobs with status='new'
+- `bulk_update_job_status`: Write-only atomic batch status updates
+
+The server is located in `mcp-server-python/`.
+
+### Quick Start
+
+```bash
+# Install all dependencies (from repository root)
+uv sync
+
+# Start server
+cd mcp-server-python
+./start_server.sh
+```
+
+### Documentation
+
+- **Quick Start**: See [mcp-server-python/QUICKSTART.md](mcp-server-python/QUICKSTART.md)
+- **Deployment Guide**: See [mcp-server-python/DEPLOYMENT.md](mcp-server-python/DEPLOYMENT.md)
+- **API Documentation**: See [mcp-server-python/README.md](mcp-server-python/README.md)
+
+### Configuration
+
+The server supports configuration via environment variables:
+
+```bash
+# Set database path
+export JOBWORKFLOW_DB=data/capture/jobs.db
+
+# Enable debug logging
+export JOBWORKFLOW_LOG_LEVEL=DEBUG
+export JOBWORKFLOW_LOG_FILE=logs/server.log
+
+# Start server
+cd mcp-server-python
+./start_server.sh
+```
+
+For detailed configuration options, see the [Deployment Guide](mcp-server-python/DEPLOYMENT.md).

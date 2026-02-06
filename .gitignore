@@ -1,6 +1,28 @@
 # Node
 node_modules/
-/.venv/
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Testing
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+*.cover
+.tox/
 
 # Environment files
 .env

@@ -226,12 +226,12 @@ Update multiple job statuses in a single atomic transaction. Validates status va
 
 #### initialize_shortlist_trackers (Projection Tool)
 
-Initialize deterministic tracker markdown files for jobs with `status='shortlist'`. This projection-oriented tool reads from the database (SSOT) and creates file-based tracker notes under `trackers/` with linked application workspace paths. The tool does NOT modify database records.
+Initialize deterministic tracker markdown files for jobs with `status='shortlist'`. This projection-oriented tool reads from the database (SSOT) and creates file-based tracker notes under repo-root `trackers/` with linked application workspace paths. The tool does NOT modify database records.
 
 **Parameters:**
 - `limit` (int, optional): Number of shortlist jobs to process (1-200, default 50)
 - `db_path` (str, optional): Database path override (default: data/capture/jobs.db)
-- `trackers_dir` (str, optional): Trackers directory override (default: trackers/)
+- `trackers_dir` (str, optional): Trackers directory override (default: `<repo_root>/trackers`)
 - `force` (bool, optional): Overwrite existing tracker files (default: false)
 - `dry_run` (bool, optional): Compute outcomes without writing files (default: false)
 
@@ -303,6 +303,7 @@ Initialize deterministic tracker markdown files for jobs with `status='shortlist
 - Tracker files include stable frontmatter and `## Job Description` / `## Notes` sections
 - Initial tracker status is set to `Reviewed`
 - Idempotent: existing files are skipped unless `force=true`
+- Compatibility dedupe: if a legacy tracker already exists with the same `reference_link`, it is treated as existing (no duplicate tracker is created)
 - Atomic writes: uses temporary file + rename to prevent partial writes
 - Continues processing on per-item failures (partial success supported)
 - Database remains read-only (no status updates or mutations)

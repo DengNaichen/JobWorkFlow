@@ -11,6 +11,8 @@ import os
 import tempfile
 import yaml
 
+from utils.path_resolution import resolve_repo_relative_path
+
 
 def update_tracker_status(tracker_path: str, new_status: str) -> None:
     """
@@ -47,7 +49,7 @@ def update_tracker_status(tracker_path: str, new_status: str) -> None:
         >>> get_tracker_status("trackers/2026-02-05-amazon-3629.md")
         'Resume Written'
     """
-    path = Path(tracker_path)
+    path = resolve_repo_relative_path(tracker_path)
     
     # Verify file exists
     if not path.exists():

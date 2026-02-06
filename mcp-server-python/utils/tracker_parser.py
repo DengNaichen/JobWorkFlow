@@ -5,7 +5,6 @@ This module provides functions to parse tracker markdown files,
 extract frontmatter and body content, and validate required fields.
 """
 
-from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
 import re
 import yaml
@@ -14,6 +13,7 @@ from models.errors import (
     create_file_not_found_error,
     create_validation_error
 )
+from utils.path_resolution import resolve_repo_relative_path
 
 
 class TrackerParseError(Exception):
@@ -59,7 +59,7 @@ def parse_tracker_file(tracker_path: str) -> Dict[str, Any]:
         True
     """
     # Verify file exists and is readable (Requirement 2.1)
-    path = Path(tracker_path)
+    path = resolve_repo_relative_path(tracker_path)
     if not path.exists():
         raise FileNotFoundError(f"Tracker file not found: {tracker_path}")
     

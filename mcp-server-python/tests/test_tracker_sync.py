@@ -117,6 +117,36 @@ def test_update_status_missing_file():
         update_tracker_status("nonexistent/tracker.md", "Applied")
 
 
+def test_update_status_relative_path_resolves_from_repo_root(tmp_path, monkeypatch):
+    """
+    Test that relative tracker paths resolve from JOBWORKFLOW_ROOT/repo root.
+    """
+    repo_root = tmp_path
+    trackers_dir = repo_root / "trackers"
+    trackers_dir.mkdir(parents=True, exist_ok=True)
+
+    tracker_path = trackers_dir / "root-tracker.md"
+    tracker_path.write_text(
+        """---
+status: Reviewed
+company: Amazon
+---
+
+## Job Description
+Body
+""",
+        encoding="utf-8",
+    )
+
+    other_cwd = tmp_path / "other-cwd"
+    other_cwd.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("JOBWORKFLOW_ROOT", str(repo_root))
+    monkeypatch.chdir(other_cwd)
+
+    update_tracker_status("trackers/root-tracker.md", "Applied")
+    assert "status: Applied" in tracker_path.read_text(encoding="utf-8")
+
+
 def test_atomic_write_preserves_original_on_failure(tmp_path):
     """
     Test that if write fails, the original file remains intact.

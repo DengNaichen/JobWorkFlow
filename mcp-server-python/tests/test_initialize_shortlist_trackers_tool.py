@@ -111,6 +111,31 @@ class TestInitializeShortlistTrackersTool:
             assert "status: Reviewed" in content
             assert f"job_db_id: {item['id']}" in content
 
+    def test_default_trackers_dir_resolves_from_repo_root_not_cwd(self, tmp_path, test_db, monkeypatch):
+        """Test default trackers_dir is anchored to JOBWORKFLOW_ROOT/repo root."""
+        work_cwd = tmp_path / "work-cwd"
+        work_cwd.mkdir(parents=True, exist_ok=True)
+
+        monkeypatch.setenv("JOBWORKFLOW_ROOT", str(tmp_path))
+        monkeypatch.chdir(work_cwd)
+
+        result = initialize_shortlist_trackers({
+            "limit": 1,
+            "db_path": test_db,
+            "force": False,
+            "dry_run": False
+        })
+
+        assert result["created_count"] == 1
+        assert result["failed_count"] == 0
+
+        tracker_path = Path(result["results"][0]["tracker_path"])
+        assert tracker_path.exists()
+        assert tracker_path.is_relative_to(tmp_path / "trackers")
+
+        # Ensure no tracker directory was created under current working directory.
+        assert not (work_cwd / "trackers").exists()
+
     def test_idempotent_initialization(self, tmp_path, test_db):
         """Test idempotent behavior - second run should skip existing files."""
         trackers_dir = tmp_path / "trackers"
@@ -144,6 +169,51 @@ class TestInitializeShortlistTrackersTool:
         for item in result2["results"]:
             assert item["action"] == "skipped_exists"
             assert item["success"] is True
+
+    def test_existing_tracker_with_same_reference_link_is_treated_as_existing(self, tmp_path, test_db):
+        """Test compatibility dedupe when a legacy tracker exists for the same job URL."""
+        trackers_dir = tmp_path / "trackers"
+        trackers_dir.mkdir(parents=True, exist_ok=True)
+
+        legacy_tracker = trackers_dir / "2026-02-04-amazon.md"
+        legacy_tracker.write_text(
+            """---
+company: Amazon
+position: Software Engineer
+status: Resume Written
+application_date: 2026-02-04
+reference_link: https://example.com/job/123
+resume_path: "[[data/applications/amazon/resume/resume.pdf]]"
+cover_letter_path: "[[data/applications/amazon/cover/cover-letter.pdf]]"
+---
+
+## Job Description
+
+Existing legacy tracker.
+
+## Notes
+""",
+            encoding="utf-8",
+        )
+
+        result = initialize_shortlist_trackers({
+            "limit": 10,
+            "db_path": test_db,
+            "trackers_dir": str(trackers_dir),
+            "force": False,
+            "dry_run": False
+        })
+
+        assert result["created_count"] == 2
+        assert result["skipped_count"] == 1
+        assert result["failed_count"] == 0
+
+        amazon_result = next(item for item in result["results"] if item["id"] == 3629)
+        assert amazon_result["action"] == "skipped_exists"
+        assert amazon_result["tracker_path"] == str(legacy_tracker)
+
+        # Ensure no new deterministic duplicate file was created for the same job.
+        assert not (trackers_dir / "2026-02-04-amazon-3629.md").exists()
 
     def test_force_overwrite(self, tmp_path, test_db):
         """Test force=True overwrites existing tracker files."""

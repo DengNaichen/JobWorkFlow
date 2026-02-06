@@ -6,13 +6,17 @@ and atomic file operations to provide a projection-oriented tool that
 initializes deterministic tracker markdown files for shortlisted jobs.
 """
 
-from typing import Dict, Any
+from pathlib import Path
+from typing import Dict, Any, Optional
+import re
+import yaml
 
 from utils.validation import validate_initialize_shortlist_trackers_parameters
 from db.jobs_reader import get_connection, query_shortlist_jobs
 from utils.tracker_planner import plan_tracker
 from utils.tracker_renderer import render_tracker_markdown
 from utils.file_ops import atomic_write, ensure_workspace_directories, resolve_write_action
+from utils.path_resolution import resolve_trackers_dir
 from models.errors import ToolError, create_internal_error
 
 
@@ -95,8 +99,8 @@ def initialize_shortlist_trackers(args: Dict[str, Any]) -> Dict[str, Any]:
                 dry_run=dry_run
             )
         
-        # Use defaults for optional parameters
-        final_trackers_dir = validated_trackers_dir or "trackers"
+        # Resolve trackers directory from repo root (not process cwd)
+        final_trackers_dir = resolve_trackers_dir(validated_trackers_dir)
         
         # Step 2: Query database for shortlist jobs
         # Uses context manager to ensure connection is always closed
@@ -107,13 +111,35 @@ def initialize_shortlist_trackers(args: Dict[str, Any]) -> Dict[str, Any]:
             )
         
         # Step 3: Process each job and collect results
+        existing_trackers_by_reference = _index_trackers_by_reference_link(final_trackers_dir)
         results = []
         
         for job in jobs:
             plan = None
             try:
                 # Plan tracker paths and workspace directories
-                plan = plan_tracker(job, final_trackers_dir)
+                plan = plan_tracker(job, str(final_trackers_dir))
+
+                # Compatibility path: if an older tracker already exists for this job's
+                # reference_link, skip creation to avoid duplicate trackers.
+                existing_tracker_for_reference = None
+                job_reference_link = job.get("url")
+                if (
+                    not plan["exists"]
+                    and isinstance(job_reference_link, str)
+                    and job_reference_link
+                ):
+                    existing_tracker_for_reference = existing_trackers_by_reference.get(job_reference_link)
+
+                if existing_tracker_for_reference is not None:
+                    results.append({
+                        "id": job["id"],
+                        "job_id": job["job_id"],
+                        "tracker_path": str(existing_tracker_for_reference),
+                        "action": "skipped_exists",
+                        "success": True
+                    })
+                    continue
                 
                 # Resolve action based on file existence and force flag
                 action = resolve_write_action(plan["exists"], validated_force)
@@ -148,6 +174,9 @@ def initialize_shortlist_trackers(args: Dict[str, Any]) -> Dict[str, Any]:
                     "action": action,
                     "success": True
                 })
+
+                if isinstance(job_reference_link, str) and job_reference_link:
+                    existing_trackers_by_reference[job_reference_link] = Path(plan["tracker_path"])
                 
             except Exception as e:
                 # Per-item failure - record and continue with next item
@@ -199,6 +228,66 @@ def initialize_shortlist_trackers(args: Dict[str, Any]) -> Dict[str, Any]:
             original_error=e
         )
         return internal_error.to_dict()
+
+
+def _extract_frontmatter(path: Path) -> Optional[Dict[str, Any]]:
+    """
+    Parse YAML frontmatter from a markdown tracker file.
+
+    Returns None when file can't be parsed or has no dictionary frontmatter.
+    """
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (OSError, IOError):
+        return None
+
+    match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
+    if not match:
+        return None
+
+    try:
+        frontmatter = yaml.safe_load(match.group(1))
+    except yaml.YAMLError:
+        return None
+
+    if not isinstance(frontmatter, dict):
+        return None
+
+    return frontmatter
+
+
+def _index_trackers_by_reference_link(trackers_dir: Path) -> Dict[str, Path]:
+    """
+    Build a deterministic map: reference_link -> tracker path.
+
+    This supports backward-compatible dedupe with legacy tracker naming.
+    """
+    if not trackers_dir.exists() or not trackers_dir.is_dir():
+        return {}
+
+    index: Dict[str, Path] = {}
+    skipped_names = {"README.md", "template.md", "Job Application.md"}
+
+    for tracker_path in sorted(trackers_dir.glob("*.md")):
+        if tracker_path.name in skipped_names:
+            continue
+
+        frontmatter = _extract_frontmatter(tracker_path)
+        if frontmatter is None:
+            continue
+
+        reference_link = frontmatter.get("reference_link")
+        if not isinstance(reference_link, str):
+            continue
+
+        reference_link = reference_link.strip()
+        if not reference_link:
+            continue
+
+        if reference_link not in index:
+            index[reference_link] = tracker_path
+
+    return index
 
 
 def _sanitize_item_error(error_msg: str) -> str:

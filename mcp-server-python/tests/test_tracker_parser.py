@@ -213,6 +213,30 @@ No frontmatter here.
         
         assert "Failed to parse tracker frontmatter" in str(exc_info.value)
 
+    def test_parse_tracker_relative_path_resolves_from_repo_root(self, tmp_path, monkeypatch):
+        """Relative tracker paths should resolve from JOBWORKFLOW_ROOT/repo root."""
+        repo_root = tmp_path
+        trackers_dir = repo_root / "trackers"
+        trackers_dir.mkdir(parents=True, exist_ok=True)
+
+        tracker_path = trackers_dir / "repo-root-tracker.md"
+        tracker_path.write_text("""---
+status: Reviewed
+company: Amazon
+---
+
+## Job Description
+Content
+""", encoding="utf-8")
+
+        work_cwd = tmp_path / "other-cwd"
+        work_cwd.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setenv("JOBWORKFLOW_ROOT", str(repo_root))
+        monkeypatch.chdir(work_cwd)
+
+        result = parse_tracker_file("trackers/repo-root-tracker.md")
+        assert result["status"] == "Reviewed"
+
 
 class TestGetTrackerStatus:
     """Tests for get_tracker_status convenience function."""

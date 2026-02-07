@@ -23,13 +23,14 @@ This means decisions and automation should be driven by DB status; trackers are 
 
 ## End-to-End Flow
 
-1. Collect jobs with `scripts/jobspy_batch_run.py` (default source: LinkedIn).
-2. Import/dedupe into `data/capture/jobs.db` with status `new`.
-3. Read queue via `bulk_read_new_jobs`.
-4. Triage and write status via `bulk_update_job_status`.
-5. Create tracker/workspace scaffolding via `initialize_shortlist_trackers` for `status=shortlist`.
-6. Compile and validate resume artifacts (outside MCP in current repo flow, `career_tailor` planned).
-7. Commit completion via `finalize_resume_batch`:
+1. **Ingest jobs** (MCP):
+   - Use `scrape_jobs` (scrapes + normalizes + inserts with idempotent dedupe)
+   - Result: jobs inserted into `data/capture/jobs.db` with `status='new'`
+2. Read queue via `bulk_read_new_jobs`.
+3. Triage and write status via `bulk_update_job_status`.
+4. Create tracker/workspace scaffolding via `initialize_shortlist_trackers` for `status=shortlist`.
+5. Run `career_tailor` to batch-generate tailoring artifacts (`ai_context.md`, `resume.tex`, `resume.pdf`) for shortlist trackers.
+6. Commit completion via `finalize_resume_batch`:
    - DB -> `resume_written` + audit fields
    - tracker frontmatter -> `Resume Written`
    - on sync failure -> fallback DB status `reviewed` with `last_error`
@@ -37,13 +38,13 @@ This means decisions and automation should be driven by DB status; trackers are 
 ## Tool Status
 
 - Implemented:
+  - `scrape_jobs` (ingestion: scrape + normalize + insert with dedupe)
   - `bulk_read_new_jobs`
   - `bulk_update_job_status`
   - `initialize_shortlist_trackers`
+  - `career_tailor`
   - `update_tracker_status`
   - `finalize_resume_batch`
-- Planned:
-  - `career_tailor`
 
 ## Status Model
 
@@ -79,7 +80,7 @@ JobWorkFlow/
 │   ├── utils/                  # Validation, parser, sync, file ops
 │   ├── models/                 # Error and schema models
 │   └── tests/                  # Test suite
-├── scripts/                    # Ingestion and helper scripts
+├── scripts/                    # Operational helper scripts
 ├── data/                       # Local data (DB, templates, artifacts)
 ├── trackers/                   # Tracker markdown notes
 ├── .kiro/specs/                # Feature specs and task breakdowns
@@ -101,22 +102,19 @@ JobWorkFlow/
 uv sync --all-groups
 ```
 
-### 2) (Optional) Ingest Jobs
+### 2) (Optional) Ingest Jobs via MCP
 
-```bash
-uv run python scripts/jobspy_batch_run.py \
-  --terms "backend engineer,machine learning engineer" \
-  --location "Ontario, Canada" \
-  --results 20
-```
+Use the `scrape_jobs` MCP tool for integrated scrape + ingest:
 
-Manual import if you already have JobSpy JSON:
-
-```bash
-uv run python scripts/import_jobspy_to_db.py \
-  --input data/capture/jobspy_linkedin_backend_engineer_ontario_2h.json \
-  --db data/capture/jobs.db \
-  --require-description
+```json
+# Example MCP call (via agent or client)
+scrape_jobs({
+  "terms": ["backend engineer", "machine learning engineer"],
+  "location": "Ontario, Canada",
+  "results_wanted": 20,
+  "hours_old": 2,
+  "save_capture_json": true
+})
 ```
 
 ### 3) Start MCP Server
@@ -157,6 +155,13 @@ See `.env.example` and `mcp-server-python/mcp-config-example.json` for templates
 
 ## MCP Tool Reference (Summary)
 
+### `scrape_jobs`
+
+- Purpose: ingest jobs from external sources (JobSpy-backed) into SQLite
+- Key args: `terms`, `location`, `sites`, `results_wanted`, `hours_old`, `db_path`, `dry_run`
+- Behavior: scrapes sources, normalizes records, inserts with idempotent dedupe by URL, returns structured run metrics
+- Boundary: **ingestion only** (inserts `status='new'`; no triage/tracker/finalize side effects)
+
 ### `bulk_read_new_jobs`
 
 - Purpose: read `status='new'` jobs in deterministic batches
@@ -175,6 +180,13 @@ See `.env.example` and `mcp-server-python/mcp-config-example.json` for templates
 - Key args: `limit`, `db_path`, `trackers_dir`, `force`, `dry_run`
 - Behavior: idempotent by default, deterministic filenames, atomic file writes, compatibility dedupe by `reference_link` to avoid legacy duplicate trackers
 
+### `career_tailor`
+
+- Purpose: batch full-tailor tracker items into resume artifacts
+- Key args: `items[]`, `force`, `full_resume_path`, `resume_template_path`, `applications_dir`, `pdflatex_cmd`
+- Behavior: per item does tracker parse + workspace bootstrap + `ai_context.md` regeneration + LaTeX compile, returns `successful_items` for downstream `finalize_resume_batch`
+- Boundary: artifact-focused only; no DB status writes and no tracker status writes
+
 ### `update_tracker_status`
 
 - Purpose: update tracker frontmatter status safely
@@ -192,6 +204,12 @@ See `.env.example` and `mcp-server-python/mcp-config-example.json` for templates
   - fallback to `reviewed` with `last_error` on sync failure
 
 For full contracts and examples, see `mcp-server-python/README.md`.
+
+## Pipeline Prompt
+
+Use a single end-to-end execution prompt from:
+
+- `docs/pipeline-prompt.md` (versioned, copy-paste ready full workflow prompt)
 
 ## Development
 
@@ -221,6 +239,7 @@ CI workflow mirrors these checks: `.github/workflows/ci.yml`.
 - Server docs: `mcp-server-python/README.md`
 - Deployment: `mcp-server-python/DEPLOYMENT.md`
 - Quickstart: `mcp-server-python/QUICKSTART.md`
+- Pipeline prompt: `docs/pipeline-prompt.md`
 - Testing notes: `TESTING.md`
 - Specs: `.kiro/specs/`
 
@@ -228,7 +247,7 @@ CI workflow mirrors these checks: `.github/workflows/ci.yml`.
 
 - DB not found:
   - verify `JOBWORKFLOW_DB` and file existence
-  - ensure ingestion/import ran successfully
+  - ensure `scrape_jobs` ingestion ran successfully
 - Tool returns validation errors:
   - check request payload shape and allowed status values
 - Resume Written blocked:

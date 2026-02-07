@@ -51,14 +51,12 @@ def atomic_write(file_path: Union[str, Path], content: str) -> None:
     try:
         # Create temporary file in target directory
         temp_fd, temp_path = tempfile.mkstemp(
-            dir=file_path.parent,
-            prefix=f".{file_path.name}.",
-            suffix=".tmp"
+            dir=file_path.parent, prefix=f".{file_path.name}.", suffix=".tmp"
         )
 
         # Write content to temporary file
         # Use os.write for the file descriptor
-        content_bytes = content.encode('utf-8')
+        content_bytes = content.encode("utf-8")
         os.write(temp_fd, content_bytes)
 
         # Sync to disk to ensure durability
@@ -108,17 +106,20 @@ def ensure_directory(dir_path: Union[str, Path]) -> None:
     Path(dir_path).mkdir(parents=True, exist_ok=True)
 
 
-def ensure_workspace_directories(application_slug: str, base_dir: str = "data/applications") -> None:
+def ensure_workspace_directories(
+    application_slug: str, base_dir: str = "data/applications"
+) -> None:
     """
     Create workspace directories for a job application.
 
     This function creates the required directory structure for storing
-    resume and cover letter files for a specific job application.
-    It does NOT create any content files (resume.pdf, cover-letter.pdf).
+    resume, cover letter, and CV files for a specific job application.
+    It does NOT create any content files (resume.pdf, cover-letter.pdf, cv.pdf).
 
     Directory structure created:
         data/applications/<application_slug>/resume/
         data/applications/<application_slug>/cover/
+        data/applications/<application_slug>/cv/
 
     Args:
         application_slug: Unique slug for the application workspace
@@ -128,7 +129,7 @@ def ensure_workspace_directories(application_slug: str, base_dir: str = "data/ap
         OSError: If directory creation fails
 
     Requirements:
-        - 3.4: Create workspace directories when missing
+        - 4.2: Create workspace directories (resume/, cover/, cv/) when missing
         - 3.5: Do NOT generate resume or cover letter content files
 
     Examples:
@@ -137,14 +138,18 @@ def ensure_workspace_directories(application_slug: str, base_dir: str = "data/ap
         True
         >>> Path("data/applications/amazon-3629/cover").is_dir()
         True
+        >>> Path("data/applications/amazon-3629/cv").is_dir()
+        True
     """
     workspace_root = Path(base_dir) / application_slug
     resume_dir = workspace_root / "resume"
     cover_dir = workspace_root / "cover"
+    cv_dir = workspace_root / "cv"
 
-    # Create both directories (parents=True creates intermediate dirs)
+    # Create all three directories (parents=True creates intermediate dirs)
     resume_dir.mkdir(parents=True, exist_ok=True)
     cover_dir.mkdir(parents=True, exist_ok=True)
+    cv_dir.mkdir(parents=True, exist_ok=True)
 
 
 def resolve_write_action(file_exists: bool, force: bool) -> str:
@@ -184,3 +189,87 @@ def resolve_write_action(file_exists: bool, force: bool) -> str:
         return "overwritten"
     else:
         return "skipped_exists"
+
+
+def materialize_resume_tex(
+    template_path: str = "data/templates/resume_skeleton_example.tex",
+    target_path: Union[str, Path] = None,
+    force: bool = False,
+) -> str:
+    """
+    Materialize resume.tex from template with force behavior.
+
+    This function implements the resume.tex initialization logic:
+    - Missing file -> create from template (action: "created")
+    - Existing file + force=false -> preserve existing (action: "preserved")
+    - Existing file + force=true -> overwrite from template (action: "overwritten")
+
+    Args:
+        template_path: Path to resume template file
+        target_path: Target path for resume.tex file
+        force: Whether to overwrite existing resume.tex
+
+    Returns:
+        Action string: "created", "preserved", or "overwritten"
+
+    Raises:
+        FileNotFoundError: If template file does not exist
+        OSError: If file operations fail
+
+    Requirements:
+        - 4.3: Initialize resume/resume.tex from template when missing
+        - 4.4: When force=true, overwrite existing resume.tex from template
+        - 4.6: Generated files SHALL be written atomically
+
+    Examples:
+        >>> # Create new resume.tex
+        >>> action = materialize_resume_tex(
+        ...     template_path="data/templates/resume_skeleton_example.tex",
+        ...     target_path="data/applications/amazon-3629/resume/resume.tex",
+        ...     force=False
+        ... )
+        >>> action
+        'created'
+
+        >>> # Preserve existing resume.tex
+        >>> action = materialize_resume_tex(
+        ...     target_path="data/applications/amazon-3629/resume/resume.tex",
+        ...     force=False
+        ... )
+        >>> action
+        'preserved'
+
+        >>> # Overwrite existing resume.tex
+        >>> action = materialize_resume_tex(
+        ...     target_path="data/applications/amazon-3629/resume/resume.tex",
+        ...     force=True
+        ... )
+        >>> action
+        'overwritten'
+    """
+    template_path = Path(template_path)
+    target_path = Path(target_path)
+
+    # Verify template exists
+    if not template_path.exists():
+        raise FileNotFoundError(f"Template file not found: {template_path}")
+
+    # Check if target already exists
+    target_exists = target_path.exists()
+
+    # Determine action based on existence and force flag
+    if target_exists and not force:
+        # Preserve existing file
+        return "preserved"
+
+    # Read template content
+    template_content = template_path.read_text(encoding="utf-8")
+
+    # Write to target using atomic write
+    atomic_write(target_path, template_content)
+
+    # Return appropriate action
+    if target_exists:
+        return "overwritten"
+    else:
+        return "created"

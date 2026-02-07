@@ -17,7 +17,7 @@ from utils.tracker_sync import update_tracker_status
 def test_update_status_preserves_frontmatter_and_body(tmp_path):
     """
     Test that updating status preserves all other frontmatter fields and body content.
-    
+
     Requirements:
         - 7.1: Update only the status field in frontmatter
         - 7.3: Preserve original body content exactly
@@ -49,25 +49,25 @@ Build scalable distributed systems.
 
 Initial review completed.
 """
-    tracker_path.write_text(original_content, encoding='utf-8')
-    
+    tracker_path.write_text(original_content, encoding="utf-8")
+
     # Update status
     update_tracker_status(str(tracker_path), "Resume Written")
-    
+
     # Read updated content
-    updated_content = tracker_path.read_text(encoding='utf-8')
-    
+    updated_content = tracker_path.read_text(encoding="utf-8")
+
     # Verify status was updated
     assert "status: Resume Written" in updated_content
     assert "status: Reviewed" not in updated_content
-    
+
     # Verify other frontmatter fields preserved
     assert "job_db_id: 3629" in updated_content
     assert "company: Amazon" in updated_content
     assert "position: Software Engineer" in updated_content
     assert "application_date: '2026-02-05'" in updated_content
     assert "resume_path: '[[data/applications/amazon-3629/resume/resume.pdf]]'" in updated_content
-    
+
     # Verify body content preserved exactly
     assert "## Job Description" in updated_content
     assert "Build scalable distributed systems." in updated_content
@@ -78,7 +78,7 @@ Initial review completed.
 def test_update_status_to_same_value(tmp_path):
     """
     Test that updating status to the same value works correctly.
-    
+
     Requirements:
         - 7.1: Update only the status field in frontmatter
     """
@@ -93,14 +93,14 @@ company: Amazon
 
 Test content.
 """
-    tracker_path.write_text(original_content, encoding='utf-8')
-    
+    tracker_path.write_text(original_content, encoding="utf-8")
+
     # Update status to same value
     update_tracker_status(str(tracker_path), "Reviewed")
-    
+
     # Read updated content
-    updated_content = tracker_path.read_text(encoding='utf-8')
-    
+    updated_content = tracker_path.read_text(encoding="utf-8")
+
     # Verify status is still correct
     assert "status: Reviewed" in updated_content
     assert "company: Amazon" in updated_content
@@ -109,7 +109,7 @@ Test content.
 def test_update_status_missing_file():
     """
     Test that updating a non-existent file raises FileNotFoundError.
-    
+
     Requirements:
         - 7.5: When write fails, original tracker file remains intact
     """
@@ -150,10 +150,10 @@ Body
 def test_atomic_write_preserves_original_on_failure(tmp_path):
     """
     Test that if write fails, the original file remains intact.
-    
+
     This test verifies atomic write behavior by checking that a failure
     during the write process doesn't corrupt the original file.
-    
+
     Requirements:
         - 7.2: Tracker write is atomic (temporary file + rename)
         - 7.5: When write fails, original tracker file remains intact
@@ -169,25 +169,25 @@ company: Amazon
 
 Original content.
 """
-    tracker_path.write_text(original_content, encoding='utf-8')
-    
+    tracker_path.write_text(original_content, encoding="utf-8")
+
     # Make directory read-only to simulate write failure
     # Note: This test is platform-dependent and may not work on all systems
     # On Unix-like systems, we can make the directory read-only
-    if os.name != 'nt':  # Skip on Windows
+    if os.name != "nt":  # Skip on Windows
         original_mode = tracker_path.parent.stat().st_mode
         try:
             os.chmod(tracker_path.parent, 0o444)
-            
+
             # Attempt to update status (should fail)
             with pytest.raises((IOError, OSError, PermissionError)):
                 update_tracker_status(str(tracker_path), "Applied")
-            
+
             # Restore permissions
             os.chmod(tracker_path.parent, original_mode)
-            
+
             # Verify original content is intact
-            current_content = tracker_path.read_text(encoding='utf-8')
+            current_content = tracker_path.read_text(encoding="utf-8")
             assert current_content == original_content
             assert "status: Reviewed" in current_content
             assert "status: Applied" not in current_content
@@ -242,7 +242,7 @@ Body
 def test_update_status_with_complex_frontmatter(tmp_path):
     """
     Test that updating status works with complex frontmatter structures.
-    
+
     Requirements:
         - 7.4: Preserve original frontmatter keys/values except status
     """
@@ -266,17 +266,17 @@ metadata:
 
 Complex tracker content.
 """
-    tracker_path.write_text(original_content, encoding='utf-8')
-    
+    tracker_path.write_text(original_content, encoding="utf-8")
+
     # Update status
     update_tracker_status(str(tracker_path), "Applied")
-    
+
     # Read updated content
-    updated_content = tracker_path.read_text(encoding='utf-8')
-    
+    updated_content = tracker_path.read_text(encoding="utf-8")
+
     # Verify status was updated
     assert "status: Applied" in updated_content
-    
+
     # Verify complex structures preserved
     assert "next_action:" in updated_content
     assert "- Wait for feedback" in updated_content
@@ -292,7 +292,7 @@ Complex tracker content.
 def test_update_status_preserves_body_whitespace(tmp_path):
     """
     Test that body content whitespace is preserved exactly.
-    
+
     Requirements:
         - 7.3: Preserve original body content exactly
     """
@@ -307,7 +307,7 @@ company: Amazon
 
 Line 1
 
-Line 2 with trailing spaces   
+Line 2 with trailing spaces
 
 Line 3
 
@@ -316,14 +316,14 @@ Line 3
 - Item 1
 - Item 2
 """
-    tracker_path.write_text(original_content, encoding='utf-8')
-    
+    tracker_path.write_text(original_content, encoding="utf-8")
+
     # Update status
     update_tracker_status(str(tracker_path), "Applied")
-    
+
     # Read updated content
-    updated_content = tracker_path.read_text(encoding='utf-8')
-    
+    updated_content = tracker_path.read_text(encoding="utf-8")
+
     # Verify body content preserved (including whitespace)
     assert "Line 1\n\nLine 2" in updated_content
     assert "Line 3\n\n## Notes" in updated_content

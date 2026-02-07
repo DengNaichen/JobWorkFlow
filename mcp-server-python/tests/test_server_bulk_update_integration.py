@@ -21,9 +21,9 @@ class TestBulkUpdateServerIntegration:
     def temp_db(self):
         """Create a temporary database with jobs table for testing."""
         # Create temporary file
-        fd, path = tempfile.mkstemp(suffix='.db')
+        fd, path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
-        
+
         # Create database with schema
         conn = sqlite3.connect(path)
         conn.execute("""
@@ -43,11 +43,11 @@ class TestBulkUpdateServerIntegration:
                 updated_at TEXT
             )
         """)
-        
+
         # Insert test data
         conn.execute("""
             INSERT INTO jobs (url, title, company, status, payload_json, created_at, captured_at)
-            VALUES 
+            VALUES
                 ('http://example.com/job1', 'Job 1', 'Company A', 'new', '{}', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z'),
                 ('http://example.com/job2', 'Job 2', 'Company B', 'new', '{}', '2024-01-02T00:00:00Z', '2024-01-02T00:00:00Z'),
                 ('http://example.com/job3', 'Job 3', 'Company C', 'new', '{}', '2024-01-03T00:00:00Z', '2024-01-03T00:00:00Z'),
@@ -56,9 +56,9 @@ class TestBulkUpdateServerIntegration:
         """)
         conn.commit()
         conn.close()
-        
+
         yield path
-        
+
         # Cleanup
         try:
             os.unlink(path)
@@ -83,10 +83,10 @@ class TestBulkUpdateServerIntegration:
     def test_tool_has_correct_metadata(self):
         """Test that the tool has correct metadata."""
         tool = mcp._tool_manager._tools["bulk_update_job_status"]
-        
+
         # Check tool name
         assert tool.name == "bulk_update_job_status"
-        
+
         # Check tool has description
         assert tool.description is not None
         assert "atomic" in tool.description.lower()
@@ -96,8 +96,7 @@ class TestBulkUpdateServerIntegration:
         """Test that the tool function can be called directly."""
         # Call the tool function directly
         result = bulk_update_job_status_tool(
-            updates=[{"id": 1, "status": "shortlist"}],
-            db_path=temp_db
+            updates=[{"id": 1, "status": "shortlist"}], db_path=temp_db
         )
 
         # Should succeed
@@ -113,9 +112,9 @@ class TestBulkUpdateServerIntegration:
             updates=[
                 {"id": 1, "status": "shortlist"},
                 {"id": 2, "status": "reviewed"},
-                {"id": 3, "status": "reject"}
+                {"id": 3, "status": "reject"},
             ],
-            db_path=temp_db
+            db_path=temp_db,
         )
 
         # Should succeed
@@ -126,10 +125,7 @@ class TestBulkUpdateServerIntegration:
 
     def test_tool_function_with_empty_batch(self, temp_db):
         """Test that the tool function handles empty batch."""
-        result = bulk_update_job_status_tool(
-            updates=[],
-            db_path=temp_db
-        )
+        result = bulk_update_job_status_tool(updates=[], db_path=temp_db)
 
         # Should succeed with zero counts
         assert "error" not in result
@@ -141,8 +137,7 @@ class TestBulkUpdateServerIntegration:
         """Test that the tool function returns structured validation errors."""
         # Call with invalid status
         result = bulk_update_job_status_tool(
-            updates=[{"id": 1, "status": "invalid_status"}],
-            db_path=temp_db
+            updates=[{"id": 1, "status": "invalid_status"}], db_path=temp_db
         )
 
         # Should return per-item failure
@@ -154,8 +149,7 @@ class TestBulkUpdateServerIntegration:
     def test_tool_function_handles_nonexistent_job(self, temp_db):
         """Test that the tool function handles nonexistent job IDs."""
         result = bulk_update_job_status_tool(
-            updates=[{"id": 999, "status": "shortlist"}],
-            db_path=temp_db
+            updates=[{"id": 999, "status": "shortlist"}], db_path=temp_db
         )
 
         # Should return per-item failure
@@ -168,8 +162,7 @@ class TestBulkUpdateServerIntegration:
         """Test that the tool function returns structured database errors."""
         # Call with non-existent database
         result = bulk_update_job_status_tool(
-            updates=[{"id": 1, "status": "shortlist"}],
-            db_path="/nonexistent/path/to/db.db"
+            updates=[{"id": 1, "status": "shortlist"}], db_path="/nonexistent/path/to/db.db"
         )
 
         # Should return error structure
@@ -190,9 +183,9 @@ class TestBulkUpdateServerIntegration:
         result = bulk_update_job_status_tool(
             updates=[
                 {"id": 1, "status": "shortlist"},  # Valid
-                {"id": 999, "status": "reviewed"}  # Invalid (doesn't exist)
+                {"id": 999, "status": "reviewed"},  # Invalid (doesn't exist)
             ],
-            db_path=temp_db
+            db_path=temp_db,
         )
 
         # Should fail entire batch
@@ -211,7 +204,7 @@ class TestBulkUpdateServerIntegration:
         # Update job to its current status
         result = bulk_update_job_status_tool(
             updates=[{"id": 1, "status": "new"}],  # Job 1 already has status 'new'
-            db_path=temp_db
+            db_path=temp_db,
         )
 
         # Should succeed
@@ -225,9 +218,9 @@ class TestBulkUpdateServerIntegration:
             updates=[
                 {"id": 1, "status": "shortlist"},
                 {"id": 2, "status": "reviewed"},
-                {"id": 3, "status": "reject"}
+                {"id": 3, "status": "reject"},
             ],
-            db_path=temp_db
+            db_path=temp_db,
         )
 
         assert result["updated_count"] == 3
@@ -244,18 +237,17 @@ class TestBulkUpdateServerIntegration:
     def test_tool_function_write_only_guarantee(self, temp_db):
         """Test that the tool function doesn't return job data."""
         result = bulk_update_job_status_tool(
-            updates=[{"id": 1, "status": "shortlist"}],
-            db_path=temp_db
+            updates=[{"id": 1, "status": "shortlist"}], db_path=temp_db
         )
 
         # Should not contain job details (title, company, description, etc.)
         assert "jobs" not in result
-        
+
         # Should only contain success/failure indicators
         assert "updated_count" in result
         assert "failed_count" in result
         assert "results" in result
-        
+
         # Results should only have id, success, and optional error
         for item in result["results"]:
             assert "id" in item
@@ -270,17 +262,17 @@ class TestBulkUpdateServerIntegration:
         """Test that the tool function has comprehensive documentation."""
         # Check that the docstring exists and includes key information
         docstring = bulk_update_job_status_tool.__doc__
-        
+
         assert docstring is not None
         assert "Args:" in docstring
         assert "Returns:" in docstring
         assert "Examples:" in docstring
         assert "Requirements:" in docstring
-        
+
         # Check that key parameters are documented
         assert "updates" in docstring
         assert "db_path" in docstring
-        
+
         # Check that return structure is documented
         assert "updated_count" in docstring
         assert "failed_count" in docstring
@@ -289,17 +281,17 @@ class TestBulkUpdateServerIntegration:
     def test_tool_function_signature_matches_spec(self):
         """Test that the tool function signature matches the specification."""
         import inspect
-        
+
         sig = inspect.signature(bulk_update_job_status_tool)
         params = sig.parameters
-        
+
         # Check parameter names
         assert "updates" in params
         assert "db_path" in params
-        
+
         # Check parameter defaults
         assert params["db_path"].default is None
-        
+
         # Check return type annotation
         assert sig.return_annotation is dict
 
@@ -308,7 +300,7 @@ class TestBulkUpdateServerIntegration:
         # This test verifies that all imports in server.py are valid
         # and that the module initializes correctly
         from server import mcp, bulk_update_job_status_tool, main
-        
+
         assert mcp is not None
         assert bulk_update_job_status_tool is not None
         assert main is not None

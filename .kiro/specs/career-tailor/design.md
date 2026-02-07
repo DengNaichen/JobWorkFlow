@@ -1,388 +1,257 @@
-# Design Document: career_tailor
+# Design Document: career_tailor (Batch Full-Only)
 
 ## Overview
 
-`career_tailor` is a workspace-initialization and compile-validation MCP tool. It consumes one tracker note, resolves deterministic application workspace paths, prepares `resume.tex` and `ai_context.md`, and optionally compiles `resume.pdf` with placeholder guardrails.
+`career_tailor` is a **batch artifact tool** for resume tailoring.
 
-This design is aligned with:
+For each tracker item, it performs one fixed full run:
 
-- `.kiro/specs/career-tailor/requirements.md`
+1. parse tracker context
+2. initialize workspace artifacts
+3. regenerate `ai_context.md`
+4. compile `resume.tex` -> `resume.pdf`
 
-Core design goals:
+This tool does not finalize status. Final state commit stays in `finalize_resume_batch`.
 
-1. Deterministic workspace resolution from tracker metadata
-2. Safe idempotent initialization with explicit `force` semantics
-3. Strict compile guardrails (`resume.tex` placeholder detection before compile)
-4. Clear separation from DB/tracker status write-back
-5. Structured output for downstream orchestration (`update_tracker_status`, `finalize_resume_batch`)
+Design goals:
+
+1. keep interface simple (batch + full-only)
+2. preserve per-item isolation and deterministic ordering
+3. keep strict boundaries (no DB status writes, no tracker status writes)
+4. return direct handoff payload for downstream finalize
 
 ## Scope
 
 In scope:
 
 - MCP tool interface for `career_tailor`
-- Tracker parsing and job description extraction
-- Workspace directory bootstrap (`resume/`, `cover/`, `cv/`)
-- `resume.tex` initialization from template
-- `ai_context.md` generation from full resume + tracker JD
-- Optional compile and PDF validation
+- batch tracker processing (`items[]`)
+- workspace bootstrap (`resume/`, `cover/`, `cv/`)
+- `resume.tex` create/overwrite behavior
+- deterministic `ai_context.md` rendering
+- compile gate with placeholder check + `pdflatex`
+- per-item structured results + top-level `successful_items`
 
 Out of scope:
 
-- Any DB read/write operation
-- Tracker status mutation
-- DB status mutation (`resume_written`)
-- LLM rewrite logic itself (agent policy layer)
+- any call to `finalize_resume_batch`
+- any DB status write (`resume_written`, `reviewed`, etc.)
+- any tracker frontmatter status update
+- compensation/rollback logic beyond item failure reporting
 
 ## Architecture
 
 ### Components
 
 1. MCP Server (`server.py`)
+   registers `career_tailor`
 2. Tool Handler (`tools/career_tailor.py`)
-3. Tracker Parser (`utils/tracker_parser.py`)
-4. Slug Resolver (`utils/slug_resolver.py`)
-5. Workspace Service (`utils/workspace.py`)
-6. Context Renderer (`utils/ai_context_renderer.py`)
-7. Placeholder Scanner (`utils/latex_guardrails.py`)
-8. LaTeX Compiler (`utils/latex_compiler.py`)
-9. Error Model (`models/errors.py`)
+   orchestrates batch flow and response shaping
+3. Validation (`utils/validation.py`)
+   validates batch request and item schema
+4. Tracker Parsing (`utils/tracker_parser.py`)
+   extracts frontmatter + `## Job Description`
+5. Workspace + Slug (`utils/workspace.py`, `utils/slug_resolver.py`)
+   deterministic paths and directory bootstrap
+6. Context Rendering (`utils/ai_context_renderer.py`)
+   renders `ai_context.md`
+7. Guardrails + Compile (`utils/latex_guardrails.py`, `utils/latex_compiler.py`)
+   placeholder scan and `pdflatex` execution
+8. Error Model (`models/errors.py`)
+   structured error taxonomy + sanitization
 
 ### Runtime Flow
 
-1. LLM agent calls `career_tailor` with `tracker_path`, optional `compile`, optional `force`
-2. Tool validates input schema and filesystem paths
-3. Tool parses tracker frontmatter and `## Job Description`
-4. Tool resolves `application_slug` and workspace directories
-5. Tool initializes/updates artifacts:
-   - `resume/resume.tex` from template (created/preserved/overwritten by `force`)
-   - `resume/ai_context.md` regenerated
-6. If `compile=true`:
-   - scan placeholders in `resume.tex`
-   - fail fast if placeholders remain
-   - run `pdflatex` and validate `resume.pdf`
-7. Tool returns structured result with paths, actions, compile state
+1. Validate top-level request and `items[]`
+2. Generate `run_id`, initialize counters
+3. For each item in input order:
+   - parse tracker
+   - resolve deterministic workspace paths
+   - ensure workspace dirs
+   - materialize `resume.tex` (`created|preserved|overwritten`)
+   - regenerate `ai_context.md`
+   - placeholder scan
+   - compile and verify `resume.pdf`
+   - append item result
+4. Aggregate totals
+5. Build `successful_items` payload for downstream finalize step
+6. Return structured batch response
 
-## Interfaces
+If one item fails, record error and continue.
 
-### MCP Tool Name
+## MCP Interface
+
+### Tool Name
 
 - `career_tailor`
 
-### Input Schema
+### Input Schema (Batch + Full-Only)
 
 ```json
 {
   "type": "object",
   "properties": {
-    "tracker_path": {
-      "type": "string",
-      "description": "Path to tracker markdown file."
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "properties": {
+          "tracker_path": { "type": "string" },
+          "job_db_id": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["tracker_path"],
+        "additionalProperties": false
+      }
     },
-    "compile": {
-      "type": "boolean",
-      "default": false,
-      "description": "If true, run LaTeX compilation after workspace preparation."
-    },
-    "force": {
-      "type": "boolean",
-      "default": false,
-      "description": "If true, overwrite existing resume.tex from template."
-    },
-    "full_resume_path": {
-      "type": "string",
-      "description": "Optional path override for full_resume.md."
-    },
-    "resume_template_path": {
-      "type": "string",
-      "description": "Optional path override for resume_skeleton.tex."
-    },
-    "applications_dir": {
-      "type": "string",
-      "description": "Optional root override for application workspaces."
-    },
-    "pdflatex_cmd": {
-      "type": "string",
-      "description": "Optional compile command override. Default: pdflatex."
-    }
+    "force": { "type": "boolean", "default": false },
+    "full_resume_path": { "type": "string" },
+    "resume_template_path": { "type": "string" },
+    "applications_dir": { "type": "string" },
+    "pdflatex_cmd": { "type": "string" }
   },
-  "required": ["tracker_path"],
+  "required": ["items"],
   "additionalProperties": false
 }
 ```
 
-### Output Schema (Success)
+Notes:
+
+- no `mode` field
+- no `compile` flag
+- each item always runs full flow
+
+### Success Output Schema
 
 ```json
 {
-  "application_slug": "amazon",
-  "workspace_dir": "data/applications/amazon",
-  "resume_tex_path": "data/applications/amazon/resume/resume.tex",
-  "ai_context_path": "data/applications/amazon/resume/ai_context.md",
-  "resume_pdf_path": "data/applications/amazon/resume/resume.pdf",
-  "compiled": true,
-  "placeholder_check_passed": true,
-  "resume_tex_action": "preserved",
-  "warnings": []
+  "run_id": "tailor_20260207_ab12cd34",
+  "total_count": 3,
+  "success_count": 2,
+  "failed_count": 1,
+  "results": [
+    {
+      "tracker_path": "trackers/2026-02-06-amazon-3629.md",
+      "job_db_id": 3629,
+      "application_slug": "amazon-3629",
+      "workspace_dir": "data/applications/amazon-3629",
+      "resume_tex_path": "data/applications/amazon-3629/resume/resume.tex",
+      "ai_context_path": "data/applications/amazon-3629/resume/ai_context.md",
+      "resume_pdf_path": "data/applications/amazon-3629/resume/resume.pdf",
+      "resume_tex_action": "preserved",
+      "success": true
+    },
+    {
+      "tracker_path": "trackers/2026-02-06-meta-3630.md",
+      "success": false,
+      "error_code": "VALIDATION_ERROR",
+      "error": "resume.tex contains placeholder tokens: PROJECT-AI-1"
+    }
+  ],
+  "successful_items": [
+    {
+      "id": 3629,
+      "tracker_path": "trackers/2026-02-06-amazon-3629.md",
+      "resume_pdf_path": "data/applications/amazon-3629/resume/resume.pdf"
+    }
+  ],
+  "warnings": [
+    "Item trackers/2026-02-06-nodbid.md succeeded but has no job_db_id; excluded from successful_items"
+  ]
 }
 ```
 
-When `compile=false`, `resume_pdf_path` may be `null` and `compiled=false`.
-
-### Error Schema
+### Error Output Schema (Top-Level)
 
 ```json
 {
   "error": {
     "code": "VALIDATION_ERROR | FILE_NOT_FOUND | TEMPLATE_NOT_FOUND | COMPILE_ERROR | INTERNAL_ERROR",
-    "message": "Human-readable error",
+    "message": "Human-readable message",
     "retryable": false
   }
 }
 ```
 
-## Tracker Parsing and Slug Resolution
+Top-level errors are only for request-level or fatal init failures.
+Item-level failures stay inside `results`.
 
-### Tracker Requirements
+## Key Behavior Decisions
 
-Tracker parser extracts:
+### 1) Batch Isolation Without Compensation
 
-- frontmatter: `company`, `position`, `resume_path`, `reference_link`, optional `job_db_id`
-- body section: `## Job Description` content
+- item failure does not trigger any fallback DB/tracker writes
+- item failure does not revert previous successful items
+- retry is achieved by rerunning failed items in next batch
 
-### Slug Resolution Priority
+### 2) Full-Only Compile Contract
 
-1. Parse slug from tracker `resume_path` pattern:
-   - `[[data/applications/<slug>/resume/resume.pdf]]`
-2. Fallback deterministic slug from metadata:
-   - normalized `company`
-   - append `job_db_id` when available to avoid collisions
-3. Final fallback:
-   - normalized company + short hash from `reference_link`
+- compile is always attempted for every item that passes initialization
+- placeholder detection blocks compile early
+- compile success requires non-empty `resume.pdf`
 
-All slug paths must be deterministic for same inputs.
+### 3) Finalize Handoff
 
-## Workspace and File Design
+- tool returns `successful_items` directly consumable by `finalize_resume_batch`
+- only items with available `job_db_id` are included
+- missing `job_db_id` is warning-level, not tailoring failure
 
-### Directory Layout
+### 4) Boundary Guarantees
 
-For `application_slug = <slug>`:
+`career_tailor` must not:
 
-- `data/applications/<slug>/resume/`
-- `data/applications/<slug>/cover/`
-- `data/applications/<slug>/cv/`
-
-### File Outputs
-
-1. `resume/resume.tex`
-   - source: `data/templates/resume_skeleton.tex` (or override)
-   - action:
-     - missing -> `created`
-     - exists + `force=false` -> `preserved`
-     - exists + `force=true` -> `overwritten`
-
-2. `resume/ai_context.md`
-   - regenerated each run
-   - built from:
-     - `full_resume.md`
-     - tracker `## Job Description`
-     - deterministic tailoring instructions
-
-Writes must use atomic temp-file + rename semantics.
-
-## AI Context Rendering
-
-Generated markdown format:
-
-```md
-# AI Context
-
-## Full Resume Source (raw)
-<full_resume.md raw content>
-
-## Job Description
-<tracker job description content>
-
-## Notes
-- Created from tracker: <tracker_path>
-
-## Instructions
-- Tailor resume bullet text to the job description.
-- Keep all claims truthful and grounded in full resume source.
-- Do not fabricate experiences, metrics, or technologies.
-- Keep LaTeX structure intact and only edit bullet content.
-```
-
-## Compile and Guardrail Design
-
-### Placeholder Detection
-
-Before compile, scanner checks for token patterns such as:
-
-- `PROJECT-AI-`
-- `PROJECT-BE-`
-- `WORK-BULLET-POINT-`
-
-If any placeholder remains:
-
-- fail with `VALIDATION_ERROR`
-- skip `pdflatex` invocation
-
-### Compile Command
-
-Default command:
-
-```bash
-pdflatex -interaction=nonstopmode resume.tex
-```
-
-Compile runs inside `data/applications/<slug>/resume/`.
-
-### Compile Validation
-
-Success requires:
-
-1. command exits successfully
-2. `resume.pdf` exists
-3. `resume.pdf` file size > 0
-
-Cleanup aux files:
-
-- `resume.aux`
-- `resume.log`
-- `resume.out`
-- `resume.synctex.gz`
-
-## Idempotency Rules
-
-1. `force=false` never overwrites existing `resume.tex`
-2. `force=true` resets `resume.tex` from template
-3. `ai_context.md` is always refreshed
-4. repeated `compile=false` runs produce deterministic `resume_tex_action` outcomes
-5. repeated `compile=true` runs recompile current `resume.tex` without mutating tracker/DB state
-
-## Boundary Guarantees
-
-The tool must not:
-
-- query or mutate SQLite (`jobs.db`)
-- mutate tracker files
-- update tracker status
-- mark DB status `resume_written`
-
-The tool only:
-
-- reads tracker/template/source resume files
-- writes workspace artifacts under application directories
-
-## Error Handling Strategy
-
-### Error Mapping
-
-- invalid request shape/arguments -> `VALIDATION_ERROR`
-- missing tracker/full_resume file -> `FILE_NOT_FOUND`
-- missing template file -> `TEMPLATE_NOT_FOUND`
-- compile or toolchain failure -> `COMPILE_ERROR`
-- unexpected exception -> `INTERNAL_ERROR`
-
-### Sanitization Policy
-
-Return concise actionable errors without:
-
-- full stack trace
-- secrets
-- full absolute sensitive paths
-
-Compile errors should include short diagnostics (for example first LaTeX error line).
+- change DB status
+- change tracker status
+- call finalize tools internally
 
 ## Pseudocode
 
 ```python
 def career_tailor(args: dict) -> dict:
-    req = validate_career_tailor_args(args)
+    req = validate_career_tailor_batch_parameters(args)
+    run_id = generate_run_id("tailor")
 
-    tracker = parse_tracker(req.tracker_path)
-    slug = resolve_application_slug(tracker)
-    ws = ensure_workspace(req.applications_dir, slug)  # resume/cover/cv
+    results = []
+    warnings = []
 
-    resume_tex_action = materialize_resume_tex(
-        template_path=req.resume_template_path,
-        target_path=ws.resume_tex_path,
-        force=req.force,
-    )
+    for item in req.items:  # preserve input order
+        try:
+            tracker = parse_tracker(item.tracker_path)
+            slug = resolve_slug(tracker, item.job_db_id)
+            ws = ensure_workspace(slug, req.applications_dir)
 
-    ai_context = render_ai_context(
-        full_resume_path=req.full_resume_path,
-        tracker=tracker,
-        tracker_path=req.tracker_path,
-    )
-    atomic_write(ws.ai_context_path, ai_context)
+            action = materialize_resume_tex(
+                template=req.resume_template_path,
+                target=ws.resume_tex_path,
+                force=req.force,
+            )
+            render_ai_context(
+                tracker=tracker,
+                full_resume_path=req.full_resume_path,
+                output=ws.ai_context_path,
+            )
 
-    compiled = False
-    placeholder_ok = None
-    resume_pdf_path = None
+            assert_no_placeholders(ws.resume_tex_path)
+            compile_pdf(ws.resume_tex_path, req.pdflatex_cmd)
+            assert_pdf_nonzero(ws.resume_pdf_path)
 
-    if req.compile:
-        placeholders = scan_placeholders(ws.resume_tex_path)
-        if placeholders:
-            raise validation_error_for_placeholders(placeholders)
+            results.append(success_result(...))
+        except ToolError as e:
+            results.append(failure_result(item, e.code, sanitize(e)))
+        except Exception as e:
+            results.append(failure_result(item, "INTERNAL_ERROR", sanitize(e)))
 
-        placeholder_ok = True
-        run_pdflatex(ws.resume_dir, req.pdflatex_cmd)
-        validate_pdf(ws.resume_pdf_path)
-        cleanup_aux(ws.resume_dir)
+    successful_items = []
+    for r in results:
+        if r["success"] and r.get("job_db_id"):
+            successful_items.append({
+                "id": r["job_db_id"],
+                "tracker_path": r["tracker_path"],
+                "resume_pdf_path": r["resume_pdf_path"],
+            })
+        elif r["success"]:
+            warnings.append("...excluded from successful_items due to missing job_db_id...")
 
-        compiled = True
-        resume_pdf_path = ws.resume_pdf_path
-
-    return {
-        "application_slug": slug,
-        "workspace_dir": ws.workspace_dir,
-        "resume_tex_path": ws.resume_tex_path,
-        "ai_context_path": ws.ai_context_path,
-        "resume_pdf_path": resume_pdf_path,
-        "compiled": compiled,
-        "placeholder_check_passed": placeholder_ok,
-        "resume_tex_action": resume_tex_action,
-        "warnings": [],
-    }
+    return aggregate_response(run_id, results, successful_items, warnings)
 ```
-
-## Testing Strategy
-
-### Unit Tests
-
-1. argument validation (`tracker_path`, `compile`, `force`, override paths)
-2. tracker parsing and `## Job Description` extraction
-3. slug resolution priority and determinism
-4. `ai_context.md` rendering format and section presence
-5. placeholder scanner correctness
-
-### Integration Tests
-
-1. initialize workspace with `compile=false`
-2. preserve/overwrite `resume.tex` with `force=false/true`
-3. compile success path with valid tailored `resume.tex`
-4. compile blocked when placeholders remain
-5. compile failure surfaces `COMPILE_ERROR`
-
-### Boundary Tests
-
-1. verify no DB connections or DB file mutations
-2. verify tracker file contents unchanged
-3. verify writes are constrained to workspace directories
-
-## Requirement Traceability
-
-- Requirement 1 (validation): Input Schema + Error Mapping
-- Requirement 2 (tracker parsing): Tracker Parsing section
-- Requirement 3 (slug resolution): Slug Resolution Priority section
-- Requirement 4 (workspace init): Workspace and File Design section
-- Requirement 5 (ai_context): AI Context Rendering section
-- Requirement 6 (idempotency): Idempotency Rules section
-- Requirement 7 (compile): Compile Command + Compile Validation sections
-- Requirement 8 (placeholder guardrail): Placeholder Detection section
-- Requirement 9 (boundaries): Boundary Guarantees section
-- Requirement 10 (response): Output Schema + pseudocode return payload
-- Requirement 11 (errors): Error Handling Strategy section
-

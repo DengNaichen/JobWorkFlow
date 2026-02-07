@@ -7,17 +7,17 @@ to provide a safe tracker status update tool with Resume Written guardrails.
 
 from typing import Dict, Any, Optional, List
 
+from pydantic import ValidationError
+
+from schemas.update_tracker_status import UpdateTrackerStatusRequest, UpdateTrackerStatusResponse
+from utils.pydantic_error_mapper import map_pydantic_validation_error
 from utils.validation import validate_update_tracker_status_parameters
 from utils.tracker_parser import parse_tracker_with_error_mapping
 from utils.tracker_policy import validate_transition
 from utils.artifact_paths import resolve_artifact_paths, ArtifactPathError
 from utils.finalize_validators import validate_resume_written_guardrails
 from utils.tracker_sync import update_tracker_status as write_tracker_status
-from models.errors import (
-    ToolError,
-    create_validation_error,
-    create_internal_error
-)
+from models.errors import ToolError, create_validation_error, create_internal_error
 
 
 def _build_response(
@@ -29,27 +29,20 @@ def _build_response(
     dry_run: bool,
     error_message: Optional[str] = None,
     guardrail_check_passed: Optional[bool] = None,
-    warnings: Optional[List[str]] = None
+    warnings: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Build structured success/blocked response payload."""
-    response = {
-        "tracker_path": tracker_path,
-        "previous_status": previous_status,
-        "target_status": target_status,
-        "action": action,
-        "success": success,
-        "dry_run": dry_run
-    }
-
-    if error_message is not None:
-        response["error"] = error_message
-
-    if guardrail_check_passed is not None:
-        response["guardrail_check_passed"] = guardrail_check_passed
-
-    response["warnings"] = warnings or []
-
-    return response
+    return UpdateTrackerStatusResponse(
+        tracker_path=tracker_path,
+        previous_status=previous_status,
+        target_status=target_status,
+        action=action,
+        success=success,
+        dry_run=dry_run,
+        error=error_message,
+        guardrail_check_passed=guardrail_check_passed,
+        warnings=warnings or [],
+    ).model_dump(exclude_none=True)
 
 
 def build_success_response(
@@ -59,7 +52,7 @@ def build_success_response(
     action: str,
     dry_run: bool,
     guardrail_check_passed: Optional[bool] = None,
-    warnings: Optional[List[str]] = None
+    warnings: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Build a success response for tracker status update."""
     return _build_response(
@@ -70,7 +63,7 @@ def build_success_response(
         success=True,
         dry_run=dry_run,
         guardrail_check_passed=guardrail_check_passed,
-        warnings=warnings
+        warnings=warnings,
     )
 
 
@@ -81,7 +74,7 @@ def build_blocked_response(
     dry_run: bool,
     error_message: str,
     guardrail_check_passed: Optional[bool] = None,
-    warnings: Optional[List[str]] = None
+    warnings: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Build a blocked response for policy/guardrail failures."""
     return _build_response(
@@ -93,7 +86,7 @@ def build_blocked_response(
         dry_run=dry_run,
         error_message=error_message,
         guardrail_check_passed=guardrail_check_passed,
-        warnings=warnings
+        warnings=warnings,
     )
 
 
@@ -166,14 +159,17 @@ def update_tracker_status(args: Dict[str, Any]) -> Dict[str, Any]:
         - 10.1-10.6: Error handling
     """
     try:
+        request = UpdateTrackerStatusRequest.model_validate(args)
+        extra_fields = request.model_extra or {}
+
         # Step 1: Validate input parameters (Requirements 1.1-1.6)
         # This will raise ToolError with VALIDATION_ERROR if invalid
         tracker_path, target_status, dry_run, force = validate_update_tracker_status_parameters(
-            tracker_path=args.get('tracker_path'),
-            target_status=args.get('target_status'),
-            dry_run=args.get('dry_run'),
-            force=args.get('force'),
-            **{k: v for k, v in args.items() if k not in ['tracker_path', 'target_status', 'dry_run', 'force']}
+            tracker_path=request.tracker_path,
+            target_status=request.target_status,
+            dry_run=request.dry_run,
+            force=request.force,
+            **extra_fields,
         )
 
         # Step 2: Parse tracker file and extract current status (Requirements 2.1-2.5)
@@ -188,7 +184,7 @@ def update_tracker_status(args: Dict[str, Any]) -> Dict[str, Any]:
                 previous_status=current_status,
                 target_status=target_status,
                 action="noop",
-                dry_run=dry_run
+                dry_run=dry_run,
             )
 
         # Step 4: Validate transition policy (Requirements 4.2-4.5)
@@ -202,7 +198,7 @@ def update_tracker_status(args: Dict[str, Any]) -> Dict[str, Any]:
                 previous_status=current_status,
                 target_status=target_status,
                 dry_run=dry_run,
-                error_message=transition_result.error_message
+                error_message=transition_result.error_message,
             )
 
         # Collect warnings from transition (e.g., force bypass)
@@ -224,7 +220,9 @@ def update_tracker_status(args: Dict[str, Any]) -> Dict[str, Any]:
                 ) from e
 
             # Step 5b: Validate Resume Written guardrails (Requirements 5.1-5.6)
-            guardrail_valid, guardrail_error = validate_resume_written_guardrails(pdf_path, tex_path)
+            guardrail_valid, guardrail_error = validate_resume_written_guardrails(
+                pdf_path, tex_path
+            )
             guardrail_check_passed = guardrail_valid
 
             if not guardrail_valid:
@@ -237,7 +235,7 @@ def update_tracker_status(args: Dict[str, Any]) -> Dict[str, Any]:
                     dry_run=dry_run,
                     error_message=guardrail_error,
                     guardrail_check_passed=False,
-                    warnings=warnings
+                    warnings=warnings,
                 )
 
         # Step 6: If dry_run=true, return predicted action without writing (Requirements 8.1-8.4)
@@ -249,7 +247,7 @@ def update_tracker_status(args: Dict[str, Any]) -> Dict[str, Any]:
                 action="would_update",
                 dry_run=True,
                 guardrail_check_passed=guardrail_check_passed,
-                warnings=warnings
+                warnings=warnings,
             )
 
         # Step 7: Write mode - update tracker status atomically (Requirements 7.1-7.5)
@@ -263,8 +261,11 @@ def update_tracker_status(args: Dict[str, Any]) -> Dict[str, Any]:
             action="updated",
             dry_run=False,
             guardrail_check_passed=guardrail_check_passed,
-            warnings=warnings
+            warnings=warnings,
         )
+
+    except ValidationError as e:
+        return map_pydantic_validation_error(e).to_dict()
 
     except ToolError as e:
         # Known tool errors with structured error information (Requirements 10.1-10.6)
@@ -275,8 +276,5 @@ def update_tracker_status(args: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         # Unexpected errors - wrap in INTERNAL_ERROR (Requirement 10.4)
         # Sanitize to avoid exposing sensitive system details (Requirement 10.6)
-        internal_error = create_internal_error(
-            message=str(e),
-            original_error=e
-        )
+        internal_error = create_internal_error(message=str(e), original_error=e)
         return internal_error.to_dict()

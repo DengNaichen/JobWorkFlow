@@ -2,171 +2,128 @@
 
 ## Introduction
 
-The `career_tailor` MCP tool initializes per-job resume workspaces from tracker notes and optionally compiles `resume.tex` into `resume.pdf`. This tool is part of the JobWorkFlow pipeline step 5 (resume tailoring), where tracker context is projected into editable resume artifacts and compile-time validation is enforced before finalization.
+The `career_tailor` MCP tool performs **batch full-run tailoring**: for each tracker item, initialize workspace artifacts, generate `ai_context.md`, and compile `resume.tex` into `resume.pdf`.
 
-This tool is workspace-focused:
-- It prepares/validates resume artifacts.
-- It does not update DB status or tracker status.
+This simplified spec intentionally fixes scope:
+
+- batch input is required (`items[]`)
+- mode is always full (no `prepare` or `compile` mode switches)
+- no DB status writes
+- no tracker status writes
+- no internal compensation/fallback writes
+
+`finalize_resume_batch` remains a separate step, invoked by prompt/workflow after successful tailoring.
 
 ## Glossary
 
-- **MCP_Tool**: A Model Context Protocol tool invokable by an LLM agent
-- **Tracker_Note**: Markdown note under `trackers/` containing frontmatter and `## Job Description`
-- **Application_Workspace**: Directory under `data/applications/<application_slug>/`
-- **Resume_Template**: LaTeX template file at `data/templates/resume_skeleton.tex`
-- **Full_Resume_Source**: Source profile context file at `data/templates/full_resume.md`
-- **Placeholder_Token**: Unreplaced bullet token in `resume.tex` (for example `PROJECT-AI-*`, `PROJECT-BE-*`, `WORK-BULLET-POINT-*`)
+- **MCP_Tool**: Model Context Protocol tool callable by an agent
+- **Batch_Item**: one requested tracker entry in `items[]`
+- **Tracker_Note**: markdown file under `trackers/` containing frontmatter and `## Job Description`
+- **Application_Workspace**: directory under `data/applications/<application_slug>/`
+- **Successful_Item**: a batch item that completed full run and produced valid `resume.pdf`
+- **Finalize_Input_Item**: object shape consumed later by `finalize_resume_batch` (`id`, `tracker_path`, optional `resume_pdf_path`)
 
 ## Requirements
 
-### Requirement 1: Tool Input and Request Validation
+### Requirement 1: Batch Input Contract (Full-Only)
 
-**User Story:** As an MCP caller, I want strict parameter validation, so that workspace initialization and compile behavior are predictable.
-
-#### Acceptance Criteria
-
-1. THE MCP_Tool SHALL require `tracker_path` as input
-2. WHEN `compile` is omitted, THE MCP_Tool SHALL default `compile=false`
-3. WHEN `force` is omitted, THE MCP_Tool SHALL default `force=false`
-4. THE MCP_Tool SHALL support optional overrides: `full_resume_path`, `resume_template_path`, `applications_dir`, `pdflatex_cmd`
-5. WHEN any input parameter type is invalid, THE MCP_Tool SHALL return `VALIDATION_ERROR`
-6. WHEN unknown input properties are provided, THE MCP_Tool SHALL return `VALIDATION_ERROR`
-
-### Requirement 2: Tracker Parsing and Context Extraction
-
-**User Story:** As the tailoring workflow, I want tracker data parsed consistently, so that workspace generation always has company metadata and job description context.
+**User Story:** As a pipeline caller, I want one MCP call to process multiple trackers in full mode, so that I can avoid per-tracker manual calls.
 
 #### Acceptance Criteria
 
-1. THE MCP_Tool SHALL load the tracker markdown file from `tracker_path`
-2. WHEN tracker file does not exist or is not readable, THE MCP_Tool SHALL return `FILE_NOT_FOUND`
-3. THE MCP_Tool SHALL parse frontmatter fields needed for workspace resolution (`company`, `position`, `resume_path`, `reference_link`, optional `job_db_id`)
-4. THE MCP_Tool SHALL require `## Job Description` heading to be present exactly
-5. WHEN `## Job Description` is missing, THE MCP_Tool SHALL return `VALIDATION_ERROR`
+1. THE MCP_Tool SHALL require `items` as a non-empty array
+2. EACH Batch_Item SHALL require `tracker_path`
+3. EACH Batch_Item MAY include optional `job_db_id` override for finalize handoff
+4. THE MCP_Tool SHALL support optional batch-level overrides: `force`, `full_resume_path`, `resume_template_path`, `applications_dir`, `pdflatex_cmd`
+5. THE MCP_Tool SHALL NOT expose mode flags (`prepare`, `compile`, `full`); execution SHALL always be full-run
+6. WHEN request fields are invalid or unknown, THE MCP_Tool SHALL return `VALIDATION_ERROR`
+
+### Requirement 2: Per-Item Isolation and Deterministic Ordering
+
+**User Story:** As an operator, I want partial success behavior, so that one bad tracker does not block the entire batch.
+
+#### Acceptance Criteria
+
+1. THE MCP_Tool SHALL process items in input order
+2. WHEN one item fails, THE MCP_Tool SHALL record item failure and continue next item
+3. THE MCP_Tool SHALL preserve input order in `results`
+4. THE MCP_Tool SHALL return top-level counts (`success_count`, `failed_count`, `total_count`)
+5. THE MCP_Tool SHALL NOT abort the whole batch due to one item-level failure
+
+### Requirement 3: Tracker Parsing and Context Extraction
+
+**User Story:** As the tailoring workflow, I want stable tracker parsing, so that generated context remains grounded in the tracker note.
+
+#### Acceptance Criteria
+
+1. THE MCP_Tool SHALL load tracker markdown from `tracker_path`
+2. WHEN tracker file is missing/unreadable, THE item SHALL fail with `FILE_NOT_FOUND`
+3. THE MCP_Tool SHALL extract frontmatter fields needed for workspace resolution (`company`, `position`, `resume_path`, optional `job_db_id`)
+4. THE MCP_Tool SHALL require `## Job Description` heading
+5. WHEN `## Job Description` is missing, THE item SHALL fail with `VALIDATION_ERROR`
 6. THE MCP_Tool SHALL extract job description content for `ai_context.md`
 
-### Requirement 3: Application Slug Resolution
+### Requirement 4: Deterministic Workspace and Artifact Initialization
 
-**User Story:** As a pipeline operator, I want deterministic slug resolution, so that all artifacts for a job are written into stable workspace paths.
-
-#### Acceptance Criteria
-
-1. THE MCP_Tool SHALL resolve `application_slug` from tracker `resume_path` when available
-2. WHEN tracker `resume_path` is missing or unparsable, THE MCP_Tool SHALL derive slug deterministically from available metadata (`company`, `position`, `job_db_id`, `reference_link`)
-3. THE MCP_Tool SHALL produce stable slug output for identical tracker input
-4. THE MCP_Tool SHALL resolve workspace root to `data/applications/<application_slug>/` by default
-5. THE MCP_Tool SHALL NOT emit random or time-based slug components
-
-### Requirement 4: Workspace Initialization
-
-**User Story:** As an LLM agent, I want one call to create required workspace structure, so that I can immediately edit and compile per-job resume artifacts.
+**User Story:** As a caller, I want consistent workspace paths and bootstrap behavior, so that reruns are predictable and safe.
 
 #### Acceptance Criteria
 
-1. THE MCP_Tool SHALL ensure the following directories exist:
+1. THE MCP_Tool SHALL resolve deterministic `application_slug` from tracker metadata (`resume_path` first, deterministic fallback second)
+2. THE MCP_Tool SHALL ensure directories exist:
    - `data/applications/<slug>/resume/`
    - `data/applications/<slug>/cover/`
    - `data/applications/<slug>/cv/`
-2. THE MCP_Tool SHALL initialize `resume/resume.tex` from `resume_skeleton.tex` when missing
-3. THE MCP_Tool SHALL initialize `resume/ai_context.md` in the same workspace
-4. THE MCP_Tool SHALL use atomic file write semantics for generated files
-5. WHEN `compile=false`, THE MCP_Tool SHALL complete initialization without invoking LaTeX compilation
+3. THE MCP_Tool SHALL initialize `resume/resume.tex` from template when missing
+4. WHEN `force=true`, THE MCP_Tool SHALL overwrite existing `resume.tex` from template
+5. THE MCP_Tool SHALL regenerate `resume/ai_context.md` on each successful item run
+6. Generated files SHALL be written atomically
 
-### Requirement 5: AI Context File Generation
+### Requirement 5: Full-Run Compile Gate
 
-**User Story:** As a tailoring agent, I want deterministic context input, so that rewrite quality is stable and grounded in real resume and JD content.
-
-#### Acceptance Criteria
-
-1. THE MCP_Tool SHALL read `full_resume.md` from configured/default source
-2. WHEN `full_resume.md` is missing, THE MCP_Tool SHALL return `FILE_NOT_FOUND`
-3. THE generated `ai_context.md` SHALL include sections:
-   - `# AI Context`
-   - `## Full Resume Source (raw)`
-   - `## Job Description`
-   - `## Notes`
-   - `## Instructions`
-4. THE MCP_Tool SHALL include tracker job description content in `## Job Description`
-5. THE MCP_Tool SHALL include deterministic tailoring instructions emphasizing truthful, non-fabricated rewrite
-
-### Requirement 6: Idempotency and Force Behavior
-
-**User Story:** As a workflow operator, I want safe retries, so that repeated runs do not accidentally destroy tailored resume content.
+**User Story:** As a pipeline, I want every successful item to be truly compilable, so that downstream finalize only sees valid artifacts.
 
 #### Acceptance Criteria
 
-1. WHEN `resume.tex` already exists and `force=false`, THE MCP_Tool SHALL preserve existing `resume.tex`
-2. WHEN `resume.tex` already exists and `force=true`, THE MCP_Tool SHALL overwrite it from template
-3. THE MCP_Tool SHALL regenerate `ai_context.md` on each successful run to reflect latest tracker/full-resume state
-4. Repeated runs with unchanged input and `force=false` SHALL produce deterministic outputs and response actions
-5. THE MCP_Tool SHALL explicitly report whether `resume.tex` was `created`, `preserved`, or `overwritten`
+1. FOR every item that passes initialization, THE MCP_Tool SHALL run LaTeX compile (`pdflatex`) on `resume.tex`
+2. BEFORE compile, THE MCP_Tool SHALL scan placeholders in `resume.tex`
+3. WHEN placeholders exist, THE item SHALL fail with `VALIDATION_ERROR` and skip compile
+4. WHEN compile succeeds, THE MCP_Tool SHALL verify `resume.pdf` exists and has non-zero size
+5. WHEN compile/toolchain fails, THE item SHALL fail with `COMPILE_ERROR`
 
-### Requirement 7: Compile Execution
+### Requirement 6: Boundary Rules (No Finalization)
 
-**User Story:** As an LLM agent, I want optional compile in the same tool, so that I can validate tailored TeX without external manual steps.
-
-#### Acceptance Criteria
-
-1. WHEN `compile=true`, THE MCP_Tool SHALL run `pdflatex` against `resume/resume.tex`
-2. WHEN `pdflatex` executable is missing or not runnable, THE MCP_Tool SHALL return `COMPILE_ERROR`
-3. ON successful compile, THE MCP_Tool SHALL produce `resume/resume.pdf`
-4. THE MCP_Tool SHALL clean common LaTeX auxiliary files after compile (`.aux`, `.log`, `.out`, `.synctex.gz`)
-5. WHEN `compile=false`, THE MCP_Tool SHALL not create or modify `resume.pdf`
-
-### Requirement 8: Placeholder Guardrail and Compile Validation
-
-**User Story:** As a quality gate, I want compile blocked when placeholders remain, so that invalid template output never passes as tailored resume.
+**User Story:** As system design policy, I want tailoring isolated from state commits, so that DB/tracker authority remains explicit.
 
 #### Acceptance Criteria
 
-1. WHEN `compile=true`, THE MCP_Tool SHALL scan `resume.tex` for placeholder tokens before invoking LaTeX
-2. WHEN placeholder tokens are detected, THE MCP_Tool SHALL fail the call with `VALIDATION_ERROR`
-3. WHEN placeholder detection fails compile gate, THE MCP_Tool SHALL return matched placeholder summary in error message
-4. ON successful compile, THE MCP_Tool SHALL verify `resume.pdf` exists and has non-zero size
-5. WHEN LaTeX compile fails, THE MCP_Tool SHALL return `COMPILE_ERROR` with sanitized diagnostic summary
+1. THE MCP_Tool SHALL NOT read or write job status in `jobs.db`
+2. THE MCP_Tool SHALL NOT call `finalize_resume_batch`
+3. THE MCP_Tool SHALL NOT update tracker frontmatter status
+4. THE MCP_Tool SHALL only write workspace artifacts
+5. THE MCP_Tool SHALL NOT implement compensation/fallback writes for failed items
 
-### Requirement 9: System Boundary and Side-Effect Constraints
+### Requirement 7: Finalize Handoff Output
 
-**User Story:** As a system architect, I want clear boundaries, so that tailoring stays separate from status transitions and DB writes.
-
-#### Acceptance Criteria
-
-1. THE MCP_Tool SHALL NOT read or write `jobs.db`
-2. THE MCP_Tool SHALL NOT update tracker frontmatter status
-3. THE MCP_Tool SHALL NOT mark DB status `resume_written` (finalization is out-of-scope)
-4. THE MCP_Tool SHALL only read source files and write under target application workspace
-5. THE MCP_Tool SHALL avoid creating artifacts outside configured workspace roots
-
-### Requirement 10: Structured Response Format
-
-**User Story:** As a calling agent, I want explicit workspace and compile outcomes, so that downstream tools can decide next actions reliably.
+**User Story:** As an orchestration prompt, I want ready-to-use finalize inputs, so that successful items can be committed in a separate step.
 
 #### Acceptance Criteria
 
-1. ON success, THE MCP_Tool SHALL return:
-   - `application_slug`
-   - `workspace_dir`
-   - `resume_tex_path`
-   - `ai_context_path`
-   - `resume_pdf_path` (nullable when `compile=false`)
-   - `compiled` (boolean)
-   - `resume_tex_action` (`created` | `preserved` | `overwritten`)
-2. THE MCP_Tool SHALL include `placeholder_check_passed` when `compile=true`
-3. THE MCP_Tool SHALL include optional `warnings` list for non-fatal conditions
-4. ALL response fields SHALL be JSON-serializable
-5. Response paths SHALL be deterministic for identical input and filesystem state
+1. THE MCP_Tool SHALL return `successful_items` for downstream `finalize_resume_batch`
+2. EACH Successful_Item SHALL include `tracker_path` and `resume_pdf_path`
+3. WHEN item `job_db_id` is available/resolved, Successful_Item SHALL include `id`
+4. WHEN `job_db_id` is missing, item SHALL still be successful for tailoring, but SHALL be excluded from `successful_items` and reported in warnings
+5. THE MCP_Tool SHALL return machine-consumable per-item fields (`application_slug`, `resume_tex_path`, `ai_context_path`, `resume_pdf_path`, `action`, `success`, optional `error`)
 
-### Requirement 11: Error Handling
+### Requirement 8: Error Model and Sanitization
 
-**User Story:** As an operator, I want failure categories that separate user input issues from compile/runtime faults, so that retry behavior is clear.
+**User Story:** As an operator, I want clear and safe failure categories, so that retry and debugging are straightforward.
 
 #### Acceptance Criteria
 
-1. Request-level input failures SHALL return `VALIDATION_ERROR`
-2. Missing required files SHALL return `FILE_NOT_FOUND` or `TEMPLATE_NOT_FOUND` as appropriate
-3. Compile/toolchain failures SHALL return `COMPILE_ERROR`
-4. Unexpected runtime failures SHALL return `INTERNAL_ERROR`
-5. Top-level error object SHALL include `retryable` boolean
-6. Error messages SHALL be sanitized (no full stack traces, no secrets, no absolute sensitive paths)
-7. Compile error details SHALL include actionable but concise diagnostics
-
+1. Request-level failures SHALL return top-level `VALIDATION_ERROR`
+2. Missing source files SHALL map to `FILE_NOT_FOUND` or `TEMPLATE_NOT_FOUND`
+3. Compile failures SHALL map to `COMPILE_ERROR`
+4. Unexpected runtime failures SHALL map to `INTERNAL_ERROR`
+5. Top-level error object SHALL include `retryable`
+6. Error messages SHALL be sanitized (no stack traces, no sensitive absolute paths, no secrets)

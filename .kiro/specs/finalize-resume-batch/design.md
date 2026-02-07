@@ -366,4 +366,3 @@ def finalize_resume_batch(args: dict) -> dict:
 - Requirement 10 (response): Output Schema + summarize pseudocode
 - Requirement 11 (errors): Error Handling Strategy
 - Requirement 12 (boundaries): Scope (out-of-scope) + Boundary tests
-

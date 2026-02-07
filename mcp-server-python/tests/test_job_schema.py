@@ -5,7 +5,6 @@ Tests mapping of database rows to the fixed output schema with
 consistent handling of missing values and JSON serialization.
 """
 
-import pytest
 import json
 from models.job import to_job_schema
 
@@ -25,7 +24,7 @@ class TestToJobSchema:
             "location": "Toronto, ON",
             "source": "linkedin",
             "status": "new",
-            "captured_at": "2026-02-04T03:47:36.966Z"
+            "captured_at": "2026-02-04T03:47:36.966Z",
         }
 
         result = to_job_schema(row)
@@ -48,7 +47,7 @@ class TestToJobSchema:
             "id": 456,
             "url": "https://example.com/job",
             "status": "new",
-            "captured_at": "2026-02-05T10:00:00.000Z"
+            "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
         result = to_job_schema(row)
@@ -79,7 +78,7 @@ class TestToJobSchema:
             "location": None,
             "source": None,
             "status": "new",
-            "captured_at": None
+            "captured_at": None,
         }
 
         result = to_job_schema(row)
@@ -108,7 +107,7 @@ class TestToJobSchema:
             "location": "",
             "source": "",
             "status": "new",
-            "captured_at": "2026-02-05T10:00:00.000Z"
+            "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
         result = to_job_schema(row)
@@ -141,15 +140,23 @@ class TestToJobSchema:
             # Extra fields that should NOT appear in output
             "extra_field": "should not appear",
             "payload_json": '{"data": "value"}',
-            "created_at": "2026-02-05T09:00:00.000Z"
+            "created_at": "2026-02-05T09:00:00.000Z",
         }
 
         result = to_job_schema(row)
 
         # Only fixed schema fields should be present
         expected_fields = {
-            "id", "job_id", "title", "company", "description",
-            "url", "location", "source", "status", "captured_at"
+            "id",
+            "job_id",
+            "title",
+            "company",
+            "description",
+            "url",
+            "location",
+            "source",
+            "status",
+            "captured_at",
         }
         assert set(result.keys()) == expected_fields
 
@@ -170,7 +177,7 @@ class TestToJobSchema:
             "location": "New York, NY",
             "source": "glassdoor",
             "status": "new",
-            "captured_at": "2026-02-05T10:00:00.000Z"
+            "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
         result = to_job_schema(row)
@@ -195,7 +202,7 @@ class TestToJobSchema:
             "location": None,
             "source": None,
             "status": "new",
-            "captured_at": None
+            "captured_at": None,
         }
 
         result = to_job_schema(row)
@@ -217,13 +224,13 @@ class TestToJobSchema:
             "id": 505,
             "job_id": "abc-123",
             "title": "Engineer & Developer",
-            "company": "Company \"Name\" Inc.",
+            "company": 'Company "Name" Inc.',
             "description": "Job with\nnewlines\tand\ttabs",
             "url": "https://example.com/job?id=123&ref=abc",
             "location": "City, ST",
             "source": "source/name",
             "status": "new",
-            "captured_at": "2026-02-05T10:00:00.000Z"
+            "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
         result = to_job_schema(row)
@@ -251,7 +258,7 @@ class TestToJobSchema:
             "location": "Montréal, QC",
             "source": "linkedin",
             "status": "new",
-            "captured_at": "2026-02-05T10:00:00.000Z"
+            "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
         result = to_job_schema(row)
@@ -280,7 +287,7 @@ class TestToJobSchema:
             "location": "Location",
             "source": "source",
             "status": "new",
-            "captured_at": "2026-02-05T10:00:00.000Z"
+            "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
         result = to_job_schema(row)
@@ -305,7 +312,7 @@ class TestToJobSchema:
             "location": "Location",
             "source": "source",
             "status": "new",
-            "captured_at": "2026-02-05T10:00:00.000Z"
+            "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
         result = to_job_schema(row)
@@ -330,7 +337,7 @@ class TestToJobSchema:
             "location": "Location",
             "source": "source",
             "status": "new",
-            "captured_at": "2026-02-05T10:00:00.000Z"
+            "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
         result1 = to_job_schema(row)
@@ -341,8 +348,16 @@ class TestToJobSchema:
 
         # Expected order based on schema definition
         expected_order = [
-            "id", "job_id", "title", "company", "description",
-            "url", "location", "source", "status", "captured_at"
+            "id",
+            "job_id",
+            "title",
+            "company",
+            "description",
+            "url",
+            "location",
+            "source",
+            "status",
+            "captured_at",
         ]
         assert list(result1.keys()) == expected_order
 
@@ -362,15 +377,23 @@ class TestSchemaRequirements:
             "location": "test",
             "source": "test",
             "status": "test",
-            "captured_at": "test"
+            "captured_at": "test",
         }
 
         result = to_job_schema(row)
 
         # All 10 fixed fields must be present
         required_fields = [
-            "id", "job_id", "title", "company", "description",
-            "url", "location", "source", "status", "captured_at"
+            "id",
+            "job_id",
+            "title",
+            "company",
+            "description",
+            "url",
+            "location",
+            "source",
+            "status",
+            "captured_at",
         ]
         for field in required_fields:
             assert field in result
@@ -390,7 +413,7 @@ class TestSchemaRequirements:
             "captured_at": "test",
             "extra_column_1": "should not appear",
             "extra_column_2": "should not appear",
-            "payload_json": "should not appear"
+            "payload_json": "should not appear",
         }
 
         result = to_job_schema(row)
@@ -418,7 +441,7 @@ class TestSchemaRequirements:
             "location": None,
             "source": None,
             "status": "new",
-            "captured_at": None
+            "captured_at": None,
         }
         result2 = to_job_schema(row2)
 
@@ -440,7 +463,7 @@ class TestSchemaRequirements:
             "location": "test",
             "source": "test",
             "status": "test",
-            "captured_at": "2026-02-05T10:00:00.000Z"
+            "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
         result = to_job_schema(row)
@@ -466,7 +489,7 @@ class TestSchemaRequirements:
             "location": "test",
             "source": "test",
             "status": "test",
-            "captured_at": "test"
+            "captured_at": "test",
         }
 
         # Call multiple times

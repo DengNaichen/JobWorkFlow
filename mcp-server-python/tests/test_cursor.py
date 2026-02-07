@@ -32,7 +32,8 @@ class TestEncodeCursor:
 
         # Should only contain base64 characters
         import re
-        assert re.match(r'^[A-Za-z0-9+/=]+$', cursor)
+
+        assert re.match(r"^[A-Za-z0-9+/=]+$", cursor)
 
     def test_encode_cursor_contains_both_fields(self):
         """Test that encoded cursor contains both captured_at and id."""
@@ -76,11 +77,11 @@ class TestEncodeCursor:
         cursor = encode_cursor("2026-02-04T03:47:36.966Z", 123)
 
         decoded = base64.b64decode(cursor)
-        json_str = decoded.decode('utf-8')
+        json_str = decoded.decode("utf-8")
 
         # Should not contain spaces after colons or commas
-        assert ': ' not in json_str
-        assert ', ' not in json_str
+        assert ": " not in json_str
+        assert ", " not in json_str
 
 
 class TestDecodeCursor:
@@ -147,7 +148,7 @@ class TestDecodeCursorErrors:
     def test_decode_invalid_json(self):
         """Test that invalid JSON raises VALIDATION_ERROR."""
         # Valid base64 but invalid JSON
-        invalid_json = base64.b64encode(b"not json").decode('ascii')
+        invalid_json = base64.b64encode(b"not json").decode("ascii")
 
         with pytest.raises(ToolError) as exc_info:
             decode_cursor(invalid_json)
@@ -160,7 +161,7 @@ class TestDecodeCursorErrors:
         """Test that JSON array raises VALIDATION_ERROR."""
         # Valid JSON but wrong type (array instead of object)
         json_array = json.dumps([1, 2, 3])
-        cursor = base64.b64encode(json_array.encode('utf-8')).decode('ascii')
+        cursor = base64.b64encode(json_array.encode("utf-8")).decode("ascii")
 
         with pytest.raises(ToolError) as exc_info:
             decode_cursor(cursor)
@@ -174,7 +175,7 @@ class TestDecodeCursorErrors:
         # Valid JSON object but missing captured_at
         payload = {"id": 123}
         json_str = json.dumps(payload)
-        cursor = base64.b64encode(json_str.encode('utf-8')).decode('ascii')
+        cursor = base64.b64encode(json_str.encode("utf-8")).decode("ascii")
 
         with pytest.raises(ToolError) as exc_info:
             decode_cursor(cursor)
@@ -188,7 +189,7 @@ class TestDecodeCursorErrors:
         # Valid JSON object but missing id
         payload = {"captured_at": "2026-02-04T03:47:36.966Z"}
         json_str = json.dumps(payload)
-        cursor = base64.b64encode(json_str.encode('utf-8')).decode('ascii')
+        cursor = base64.b64encode(json_str.encode("utf-8")).decode("ascii")
 
         with pytest.raises(ToolError) as exc_info:
             decode_cursor(cursor)
@@ -202,7 +203,7 @@ class TestDecodeCursorErrors:
         # captured_at is a number instead of string
         payload = {"captured_at": 123456, "id": 789}
         json_str = json.dumps(payload)
-        cursor = base64.b64encode(json_str.encode('utf-8')).decode('ascii')
+        cursor = base64.b64encode(json_str.encode("utf-8")).decode("ascii")
 
         with pytest.raises(ToolError) as exc_info:
             decode_cursor(cursor)
@@ -217,7 +218,7 @@ class TestDecodeCursorErrors:
         # id is a string instead of integer
         payload = {"captured_at": "2026-02-04T03:47:36.966Z", "id": "123"}
         json_str = json.dumps(payload)
-        cursor = base64.b64encode(json_str.encode('utf-8')).decode('ascii')
+        cursor = base64.b64encode(json_str.encode("utf-8")).decode("ascii")
 
         with pytest.raises(ToolError) as exc_info:
             decode_cursor(cursor)
@@ -238,7 +239,7 @@ class TestDecodeCursorErrors:
     def test_decode_invalid_utf8(self):
         """Test that invalid UTF-8 raises VALIDATION_ERROR."""
         # Create invalid UTF-8 sequence
-        invalid_utf8 = base64.b64encode(b'\xff\xfe').decode('ascii')
+        invalid_utf8 = base64.b64encode(b"\xff\xfe").decode("ascii")
 
         with pytest.raises(ToolError) as exc_info:
             decode_cursor(invalid_utf8)
@@ -321,8 +322,8 @@ class TestCursorErrorMessages:
         """Test that all cursor error messages are descriptive."""
         test_cases = [
             ("invalid!!!", "base64"),
-            (base64.b64encode(b"not json").decode('ascii'), "json"),
-            (base64.b64encode(b"[]").decode('ascii'), "object"),
+            (base64.b64encode(b"not json").decode("ascii"), "json"),
+            (base64.b64encode(b"[]").decode("ascii"), "object"),
         ]
 
         for cursor, expected_keyword in test_cases:
@@ -337,9 +338,9 @@ class TestCursorErrorMessages:
         """Test that all cursor errors use VALIDATION_ERROR code."""
         invalid_cursors = [
             "invalid!!!",
-            base64.b64encode(b"not json").decode('ascii'),
-            base64.b64encode(b"[]").decode('ascii'),
-            base64.b64encode(b'{"id": 123}').decode('ascii'),
+            base64.b64encode(b"not json").decode("ascii"),
+            base64.b64encode(b"[]").decode("ascii"),
+            base64.b64encode(b'{"id": 123}').decode("ascii"),
         ]
 
         for cursor in invalid_cursors:

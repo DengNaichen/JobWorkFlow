@@ -4,12 +4,7 @@ Unit tests for pagination helper functions.
 Tests pagination logic, cursor building, and edge cases.
 """
 
-
-from utils.pagination import (
-    compute_has_more,
-    build_next_cursor,
-    paginate_results
-)
+from utils.pagination import compute_has_more, build_next_cursor, paginate_results
 from utils.cursor import decode_cursor
 
 
@@ -76,11 +71,7 @@ class TestBuildNextCursor:
 
     def test_build_cursor_from_valid_row(self):
         """Test building cursor from a valid row."""
-        row = {
-            "id": 123,
-            "captured_at": "2026-02-04T03:47:36.966Z",
-            "title": "Test Job"
-        }
+        row = {"id": 123, "captured_at": "2026-02-04T03:47:36.966Z", "title": "Test Job"}
 
         cursor = build_next_cursor(row)
 
@@ -90,11 +81,7 @@ class TestBuildNextCursor:
 
     def test_build_cursor_contains_correct_values(self):
         """Test that built cursor contains correct captured_at and id."""
-        row = {
-            "id": 456,
-            "captured_at": "2026-02-04T03:47:36.966Z",
-            "title": "Test Job"
-        }
+        row = {"id": 456, "captured_at": "2026-02-04T03:47:36.966Z", "title": "Test Job"}
 
         cursor = build_next_cursor(row)
 
@@ -138,7 +125,7 @@ class TestBuildNextCursor:
             "captured_at": "2026-02-04T03:47:36.966Z",
             "title": "Test Job",
             "company": "Test Company",
-            "description": "Long description..."
+            "description": "Long description...",
         }
 
         cursor = build_next_cursor(row)
@@ -165,10 +152,7 @@ class TestPaginateResults:
 
     def test_paginate_results_less_than_limit(self):
         """Test pagination when results are less than limit."""
-        rows = [
-            {"id": i, "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"}
-            for i in range(25)
-        ]
+        rows = [{"id": i, "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"} for i in range(25)]
         limit = 50
 
         page, has_more, next_cursor = paginate_results(rows, limit)
@@ -180,10 +164,7 @@ class TestPaginateResults:
 
     def test_paginate_results_equal_to_limit(self):
         """Test pagination when results equal limit (no more pages)."""
-        rows = [
-            {"id": i, "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"}
-            for i in range(50)
-        ]
+        rows = [{"id": i, "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"} for i in range(50)]
         limit = 50
 
         page, has_more, next_cursor = paginate_results(rows, limit)
@@ -211,10 +192,7 @@ class TestPaginateResults:
 
     def test_paginate_next_cursor_uses_last_page_row(self):
         """Test that next_cursor is built from the last row of the page."""
-        rows = [
-            {"id": i, "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"}
-            for i in range(51)
-        ]
+        rows = [{"id": i, "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"} for i in range(51)]
         limit = 50
 
         page, has_more, next_cursor = paginate_results(rows, limit)
@@ -241,9 +219,7 @@ class TestPaginateResults:
 
     def test_paginate_single_row_with_limit_one(self):
         """Test pagination with single row and limit of 1."""
-        rows = [
-            {"id": 1, "captured_at": "2026-02-04T03:47:00.000Z"}
-        ]
+        rows = [{"id": 1, "captured_at": "2026-02-04T03:47:00.000Z"}]
         limit = 1
 
         page, has_more, next_cursor = paginate_results(rows, limit)
@@ -257,7 +233,7 @@ class TestPaginateResults:
         """Test pagination with two rows and limit of 1."""
         rows = [
             {"id": 1, "captured_at": "2026-02-04T03:47:00.000Z"},
-            {"id": 2, "captured_at": "2026-02-04T03:47:01.000Z"}
+            {"id": 2, "captured_at": "2026-02-04T03:47:01.000Z"},
         ]
         limit = 1
 
@@ -276,7 +252,7 @@ class TestPaginateResults:
                 "job_id": f"job_{i}",
                 "title": f"Job {i}",
                 "company": f"Company {i}",
-                "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"
+                "captured_at": f"2026-02-04T03:47:{i:02d}.000Z",
             }
             for i in range(51)
         ]
@@ -331,7 +307,7 @@ class TestPaginationEdgeCases:
         """Test that pagination cursor is opaque (not human-readable)."""
         rows = [
             {"id": 123, "captured_at": "2026-02-04T03:47:36.966Z"},
-            {"id": 124, "captured_at": "2026-02-04T03:47:37.000Z"}
+            {"id": 124, "captured_at": "2026-02-04T03:47:37.000Z"},
         ]
         limit = 1
 
@@ -344,17 +320,11 @@ class TestPaginationEdgeCases:
     def test_paginate_multiple_pages_produce_different_cursors(self):
         """Test that different pages produce different cursors."""
         # Simulate first page
-        rows1 = [
-            {"id": i, "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"}
-            for i in range(51)
-        ]
+        rows1 = [{"id": i, "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"} for i in range(51)]
         page1, has_more1, cursor1 = paginate_results(rows1, 50)
 
         # Simulate second page (different rows)
-        rows2 = [
-            {"id": i, "captured_at": f"2026-02-04T03:46:{i:02d}.000Z"}
-            for i in range(51, 102)
-        ]
+        rows2 = [{"id": i, "captured_at": f"2026-02-04T03:46:{i:02d}.000Z"} for i in range(51, 102)]
         page2, has_more2, cursor2 = paginate_results(rows2, 50)
 
         # Cursors should be different
@@ -363,10 +333,7 @@ class TestPaginationEdgeCases:
     def test_paginate_terminal_page_has_no_cursor(self):
         """Test that terminal page (last page) has no next_cursor."""
         # Simulate terminal page with fewer rows than limit
-        rows = [
-            {"id": i, "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"}
-            for i in range(30)
-        ]
+        rows = [{"id": i, "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"} for i in range(30)]
         limit = 50
 
         page, has_more, next_cursor = paginate_results(rows, limit)
@@ -386,7 +353,7 @@ class TestPaginationIntegration:
                 "id": i,
                 "job_id": f"job_{i}",
                 "title": f"Job {i}",
-                "captured_at": f"2026-02-04T03:47:{i:02d}.000Z"
+                "captured_at": f"2026-02-04T03:47:{i:02d}.000Z",
             }
             for i in range(51)
         ]
@@ -415,7 +382,7 @@ class TestPaginationIntegration:
                 "id": i,
                 "job_id": f"job_{i}",
                 "title": f"Job {i}",
-                "captured_at": f"2026-02-04T03:46:{i:02d}.000Z"
+                "captured_at": f"2026-02-04T03:46:{i:02d}.000Z",
             }
             for i in range(50, 101)
         ]
@@ -439,7 +406,7 @@ class TestPaginationIntegration:
                 "id": i,
                 "job_id": f"job_{i}",
                 "title": f"Job {i}",
-                "captured_at": f"2026-02-04T03:45:{i:02d}.000Z"
+                "captured_at": f"2026-02-04T03:45:{i:02d}.000Z",
             }
             for i in range(100, 125)
         ]

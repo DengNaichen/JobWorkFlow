@@ -173,18 +173,18 @@ while True:
     args = {"limit": 50}
     if cursor:
         args["cursor"] = cursor
-    
+
     result = bulk_read_new_jobs(args)
-    
+
     if "error" in result:
         print(f"Error: {result['error']['message']}")
         break
-    
+
     all_jobs.extend(result["jobs"])
-    
+
     if not result["has_more"]:
         break
-    
+
     cursor = result["next_cursor"]
 
 print(f"Total jobs fetched: {len(all_jobs)}")

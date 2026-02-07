@@ -5,7 +5,6 @@ Tests verify that atomic_write works correctly with tracker_renderer
 to create complete tracker files.
 """
 
-from pathlib import Path
 from utils.file_ops import atomic_write, ensure_directory, ensure_workspace_directories
 from utils.tracker_renderer import render_tracker_markdown
 
@@ -23,13 +22,13 @@ class TestAtomicWriteIntegration:
             "company": "Amazon",
             "description": "Build scalable systems...",
             "url": "https://example.com/job/123",
-            "captured_at": "2026-02-04T15:30:00"
+            "captured_at": "2026-02-04T15:30:00",
         }
 
         plan = {
             "resume_path": "[[data/applications/amazon-3629/resume/resume.pdf]]",
             "cover_letter_path": "[[data/applications/amazon-3629/cover/cover-letter.pdf]]",
-            "application_slug": "amazon-3629"
+            "application_slug": "amazon-3629",
         }
 
         # Render tracker content
@@ -74,14 +73,14 @@ class TestAtomicWriteIntegration:
             "company": "General Motors",
             "description": None,  # Test fallback
             "url": "https://example.com/job/456",
-            "captured_at": "2026-02-05 10:00:00"
+            "captured_at": "2026-02-05 10:00:00",
         }
 
         application_slug = "general_motors-3711"
         plan = {
             "resume_path": f"[[data/applications/{application_slug}/resume/resume.pdf]]",
             "cover_letter_path": f"[[data/applications/{application_slug}/cover/cover-letter.pdf]]",
-            "application_slug": application_slug
+            "application_slug": application_slug,
         }
 
         # Create workspace directories using the new helper
@@ -97,13 +96,13 @@ class TestAtomicWriteIntegration:
         workspace_root = base_dir / application_slug
         assert (workspace_root / "resume").is_dir()
         assert (workspace_root / "cover").is_dir()
+        assert (workspace_root / "cv").is_dir()
         assert tracker_path.exists()
 
         written_content = tracker_path.read_text()
         assert "No description available." in written_content
         assert "job_db_id: 3711" in written_content
         assert "company: General Motors" in written_content
-
 
     def test_idempotent_action_resolution_workflow(self, tmp_path):
         """Test complete idempotent action resolution workflow."""
@@ -117,14 +116,14 @@ class TestAtomicWriteIntegration:
             "company": "Google",
             "description": "Build distributed systems...",
             "url": "https://example.com/job/789",
-            "captured_at": "2026-02-06T12:00:00"
+            "captured_at": "2026-02-06T12:00:00",
         }
 
         application_slug = "google-4000"
         plan = {
             "resume_path": f"[[data/applications/{application_slug}/resume/resume.pdf]]",
             "cover_letter_path": f"[[data/applications/{application_slug}/cover/cover-letter.pdf]]",
-            "application_slug": application_slug
+            "application_slug": application_slug,
         }
 
         tracker_path = tmp_path / "trackers" / "2026-02-06-google-4000.md"

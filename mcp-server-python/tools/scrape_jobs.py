@@ -13,6 +13,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
+from pydantic import ValidationError
+
 from db.jobs_ingest_writer import JobsIngestWriter
 from models.errors import (
     ToolError,
@@ -20,8 +22,10 @@ from models.errors import (
     sanitize_sql_error,
     sanitize_stack_trace,
 )
+from schemas.scrape_jobs import ScrapeJobsRequest, ScrapeJobsResponse
 from utils.capture_writer import write_capture_file
 from utils.jobspy_adapter import PreflightDNSError, preflight_dns_check, scrape_jobs_for_term
+from utils.pydantic_error_mapper import map_pydantic_validation_error
 from utils.scrape_normalizer import normalize_and_filter, serialize_payload
 from utils.validation import validate_scrape_jobs_parameters
 
@@ -261,6 +265,8 @@ def scrape_jobs(**kwargs) -> Dict[str, Any]:
     **Validates: Requirements 1.1, 1.2, 1.3, 1.4, 1.5, 3.2, 5.4, 10.1, 10.2, 10.3, 10.4, 11.1, 11.2, 11.3, 11.4, 11.5**
     """
     try:
+        ScrapeJobsRequest.model_validate(kwargs)
+
         # Stage 1: Validate all parameters (Requirement 1.4, 1.5, 11.1)
         config = validate_scrape_jobs_parameters(**kwargs)
 
@@ -287,15 +293,18 @@ def scrape_jobs(**kwargs) -> Dict[str, Any]:
         end_time = datetime.now(timezone.utc)
         duration_ms = int((end_time - start_time).total_seconds() * 1000)
 
-        return {
-            "run_id": run_id,
-            "started_at": started_at,
-            "finished_at": finished_at,
-            "duration_ms": duration_ms,
-            "dry_run": config["dry_run"],
-            "results": results,
-            "totals": totals,
-        }
+        return ScrapeJobsResponse(
+            run_id=run_id,
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_ms=duration_ms,
+            dry_run=config["dry_run"],
+            results=results,
+            totals=totals,
+        ).model_dump(exclude_none=True)
+
+    except ValidationError as e:
+        raise map_pydantic_validation_error(e) from e
 
     except ToolError:
         # Re-raise ToolError as-is (already structured)

@@ -7,6 +7,10 @@ to provide a complete write-only batch status update tool for job records.
 
 from typing import Dict, Any, List, Optional
 
+from pydantic import ValidationError
+
+from schemas.bulk_update_job_status import BulkUpdateJobStatusRequest, BulkUpdateJobStatusResponse
+from utils.pydantic_error_mapper import map_pydantic_validation_error
 from utils.validation import (
     validate_batch_size,
     validate_unique_job_ids,
@@ -15,31 +19,7 @@ from utils.validation import (
     get_current_utc_timestamp,
 )
 from db.jobs_writer import JobsWriter
-from models.errors import ToolError, create_validation_error, create_internal_error
-
-
-def validate_request_shape(args: Dict[str, Any]) -> None:
-    """
-    Validate the top-level request structure.
-
-    Ensures that the 'updates' parameter is present and is a list.
-
-    Args:
-        args: The request arguments dictionary
-
-    Raises:
-        ToolError: If request structure is invalid
-    """
-    # Check that 'updates' key exists
-    if "updates" not in args:
-        raise create_validation_error("Missing required parameter: 'updates'")
-
-    # Check that 'updates' is a list
-    updates = args["updates"]
-    if not isinstance(updates, list):
-        raise create_validation_error(
-            f"Invalid updates type: expected list, got {type(updates).__name__}"
-        )
+from models.errors import ToolError, create_internal_error
 
 
 def validate_update_item(update: Any, index: int) -> Optional[str]:
@@ -139,7 +119,9 @@ def build_success_response(updates: List[Dict[str, Any]]) -> Dict[str, Any]:
     for update in updates:
         results.append({"id": update["id"], "success": True})
 
-    return {"updated_count": len(updates), "failed_count": 0, "results": results}
+    return BulkUpdateJobStatusResponse(
+        updated_count=len(updates), failed_count=0, results=results
+    ).model_dump(exclude_none=True)
 
 
 def build_failure_response(
@@ -168,7 +150,9 @@ def build_failure_response(
             # This shouldn't happen, but handle gracefully
             results.append({"id": job_id, "success": False, "error": "Unknown error"})
 
-    return {"updated_count": 0, "failed_count": len(failures), "results": results}
+    return BulkUpdateJobStatusResponse(
+        updated_count=0, failed_count=len(failures), results=results
+    ).model_dump(exclude_none=True)
 
 
 def bulk_update_job_status(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -243,12 +227,12 @@ def bulk_update_job_status(args: Dict[str, Any]) -> Dict[str, Any]:
         - 11.1-11.5: Write-only operations
     """
     try:
-        # Step 1: Validate request structure
-        validate_request_shape(args)
+        # Step 1: Validate top-level request via Pydantic
+        request = BulkUpdateJobStatusRequest.model_validate(args)
 
         # Step 2: Extract parameters
-        updates = args["updates"]
-        db_path = args.get("db_path")
+        updates = request.updates
+        db_path = request.db_path
 
         # Step 3: Validate batch size
         validate_batch_size(updates)
@@ -287,6 +271,10 @@ def bulk_update_job_status(args: Dict[str, Any]) -> Dict[str, Any]:
 
             # Step 7: Return success response
             return build_success_response(updates)
+
+    except ValidationError as e:
+        validation_error = map_pydantic_validation_error(e)
+        return validation_error.to_dict()
 
     except ToolError as e:
         # Known tool errors with structured error information

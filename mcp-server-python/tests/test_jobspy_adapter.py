@@ -10,7 +10,12 @@ import socket
 import pandas as pd
 import pytest
 
-from utils.jobspy_adapter import scrape_jobs_for_term, preflight_dns_check, PreflightDNSError
+from utils.jobspy_adapter import (
+    scrape_jobs_for_term,
+    preflight_dns_check,
+    PreflightDNSError,
+    ScrapeProviderError,
+)
 
 
 class TestScrapeJobsForTerm:
@@ -83,21 +88,22 @@ class TestScrapeJobsForTerm:
 
         assert result == []
 
-    def test_exception_returns_empty_list(self):
-        """Test that exceptions during scraping return empty list."""
+    def test_exception_raises_provider_error(self):
+        """Test that provider exceptions are surfaced to caller."""
         with patch(
             "utils.jobspy_adapter.jobspy.scrape_jobs",
             side_effect=Exception("Network error"),
         ):
-            result = scrape_jobs_for_term(
-                term="backend engineer",
-                sites=["linkedin"],
-                location="Ontario, Canada",
-                results_wanted=20,
-                hours_old=2,
-            )
+            with pytest.raises(ScrapeProviderError) as exc_info:
+                scrape_jobs_for_term(
+                    term="backend engineer",
+                    sites=["linkedin"],
+                    location="Ontario, Canada",
+                    results_wanted=20,
+                    hours_old=2,
+                )
 
-        assert result == []
+        assert "provider scrape failed" in str(exc_info.value).lower()
 
     def test_calls_jobspy_with_correct_parameters(self):
         """Test that jobspy.scrape_jobs is called with correct parameters."""

@@ -181,6 +181,8 @@ class TestCleanRecord:
         assert result["company"] == "Tech Corp"
         assert result["location"] == "San Francisco, CA"
         assert result["source"] == "linkedin"
+        assert result["job_id"] == "src-123"
+        assert "2024-01-15" in result["captured_at"]
         assert result["jobId"] == "src-123"
         assert "2024-01-15" in result["capturedAt"]
         assert "id" in result

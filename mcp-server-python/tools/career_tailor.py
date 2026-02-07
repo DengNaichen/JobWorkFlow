@@ -16,6 +16,10 @@ from typing import Dict, Any, List, Optional
 import hashlib
 import re
 
+from pydantic import ValidationError
+
+from schemas.career_tailor import CareerTailorRequest, CareerTailorResponse
+from utils.pydantic_error_mapper import map_pydantic_validation_error
 from utils.validation import validate_career_tailor_batch_parameters
 from utils.tracker_parser import parse_tracker_for_career_tailor_with_error_mapping
 from utils.slug_resolver import resolve_application_slug
@@ -355,6 +359,8 @@ def career_tailor(args: Dict[str, Any]) -> Dict[str, Any]:
         - 8.5: Top-level error object includes retryable
     """
     try:
+        request = CareerTailorRequest.model_validate(args)
+
         # Validate request-level parameters (Requirements 1.1-1.6)
         # Extract known parameters and pass rest as kwargs to catch unknown fields
         known_params = {
@@ -369,12 +375,12 @@ def career_tailor(args: Dict[str, Any]) -> Dict[str, Any]:
 
         (items, force, full_resume_path, resume_template_path, applications_dir, pdflatex_cmd) = (
             validate_career_tailor_batch_parameters(
-                items=args.get("items"),
-                force=args.get("force"),
-                full_resume_path=args.get("full_resume_path"),
-                resume_template_path=args.get("resume_template_path"),
-                applications_dir=args.get("applications_dir"),
-                pdflatex_cmd=args.get("pdflatex_cmd"),
+                items=request.items,
+                force=request.force,
+                full_resume_path=request.full_resume_path,
+                resume_template_path=request.resume_template_path,
+                applications_dir=request.applications_dir,
+                pdflatex_cmd=request.pdflatex_cmd,
                 **unknown_params,
             )
         )
@@ -431,20 +437,18 @@ def career_tailor(args: Dict[str, Any]) -> Dict[str, Any]:
                     )
 
         # Build response
-        response = {
-            "run_id": run_id,
-            "total_count": total_count,
-            "success_count": success_count,
-            "failed_count": failed_count,
-            "results": results,
-            "successful_items": successful_items,
-        }
+        return CareerTailorResponse(
+            run_id=run_id,
+            total_count=total_count,
+            success_count=success_count,
+            failed_count=failed_count,
+            results=results,
+            successful_items=successful_items,
+            warnings=warnings or None,
+        ).model_dump(exclude_none=True)
 
-        # Include warnings if any
-        if warnings:
-            response["warnings"] = warnings
-
-        return response
+    except ValidationError as e:
+        raise map_pydantic_validation_error(e) from e
 
     except ToolError:
         # ToolError already has proper error code - re-raise

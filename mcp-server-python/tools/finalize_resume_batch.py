@@ -15,7 +15,10 @@ from typing import Dict, Any, List, Optional
 import hashlib
 import re
 
+from pydantic import ValidationError
+
 from db.jobs_writer import JobsWriter
+from schemas.finalize_resume_batch import FinalizeResumeBatchRequest, FinalizeResumeBatchResponse
 from utils.validation import (
     validate_finalize_resume_batch_parameters,
     validate_finalize_item,
@@ -26,6 +29,7 @@ from utils.artifact_paths import resolve_resume_tex_path
 from utils.finalize_validators import validate_tracker_exists, validate_resume_written_guardrails
 from utils.tracker_sync import update_tracker_status
 from models.errors import ToolError, create_internal_error
+from utils.pydantic_error_mapper import map_pydantic_validation_error
 
 
 def generate_run_id() -> str:
@@ -349,12 +353,14 @@ def finalize_resume_batch(args: Dict[str, Any]) -> Dict[str, Any]:
         - 11.6: Per-item precondition/finalization failures are represented in results
     """
     try:
+        request = FinalizeResumeBatchRequest.model_validate(args)
+
         # Validate request-level parameters
         items, run_id_param, db_path, dry_run = validate_finalize_resume_batch_parameters(
-            items=args.get("items"),
-            run_id=args.get("run_id"),
-            db_path=args.get("db_path"),
-            dry_run=args.get("dry_run"),
+            items=request.items,
+            run_id=request.run_id,
+            db_path=request.db_path,
+            dry_run=request.dry_run,
         )
 
         # Generate run_id if not provided
@@ -362,13 +368,13 @@ def finalize_resume_batch(args: Dict[str, Any]) -> Dict[str, Any]:
 
         # Handle empty batch
         if len(items) == 0:
-            return {
-                "run_id": run_id,
-                "finalized_count": 0,
-                "failed_count": 0,
-                "dry_run": dry_run,
-                "results": [],
-            }
+            return FinalizeResumeBatchResponse(
+                run_id=run_id,
+                finalized_count=0,
+                failed_count=0,
+                dry_run=dry_run,
+                results=[],
+            ).model_dump(exclude_none=True)
 
         # Open DB connection and preflight schema
         with JobsWriter(db_path) as writer:
@@ -412,13 +418,16 @@ def finalize_resume_batch(args: Dict[str, Any]) -> Dict[str, Any]:
             finalized_count = sum(1 for r in results if r["success"])
             failed_count = sum(1 for r in results if not r["success"])
 
-            return {
-                "run_id": run_id,
-                "finalized_count": finalized_count,
-                "failed_count": failed_count,
-                "dry_run": dry_run,
-                "results": results,
-            }
+            return FinalizeResumeBatchResponse(
+                run_id=run_id,
+                finalized_count=finalized_count,
+                failed_count=failed_count,
+                dry_run=dry_run,
+                results=results,
+            ).model_dump(exclude_none=True)
+
+    except ValidationError as e:
+        raise map_pydantic_validation_error(e) from e
 
     except ToolError:
         # ToolError already has proper error code - re-raise

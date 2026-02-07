@@ -11,6 +11,13 @@ from typing import Dict, Any, Optional
 import re
 import yaml
 
+from pydantic import ValidationError
+
+from schemas.initialize_shortlist_trackers import (
+    InitializeShortlistTrackersRequest,
+    InitializeShortlistTrackersResponse,
+)
+from utils.pydantic_error_mapper import map_pydantic_validation_error
 from utils.validation import validate_initialize_shortlist_trackers_parameters
 from db.jobs_reader import get_connection, query_shortlist_jobs
 from utils.tracker_planner import plan_tracker
@@ -82,12 +89,7 @@ def initialize_shortlist_trackers(args: Dict[str, Any]) -> Dict[str, Any]:
         - 9.1-9.5: MCP tool interface compliance
     """
     try:
-        # Step 1: Extract and validate all input parameters
-        limit = args.get("limit")
-        db_path = args.get("db_path")
-        trackers_dir = args.get("trackers_dir")
-        force = args.get("force")
-        dry_run = args.get("dry_run")
+        request = InitializeShortlistTrackersRequest.model_validate(args)
 
         # Validate parameters (raises ToolError on invalid input)
         (
@@ -97,7 +99,11 @@ def initialize_shortlist_trackers(args: Dict[str, Any]) -> Dict[str, Any]:
             validated_force,
             validated_dry_run,
         ) = validate_initialize_shortlist_trackers_parameters(
-            limit=limit, db_path=db_path, trackers_dir=trackers_dir, force=force, dry_run=dry_run
+            limit=request.limit,
+            db_path=request.db_path,
+            trackers_dir=request.trackers_dir,
+            force=request.force,
+            dry_run=request.dry_run,
         )
 
         # Resolve trackers directory from repo root (not process cwd)
@@ -214,12 +220,15 @@ def initialize_shortlist_trackers(args: Dict[str, Any]) -> Dict[str, Any]:
         total_created = created_count + overwritten_count
 
         # Step 5: Build and return response
-        return {
-            "created_count": total_created,
-            "skipped_count": skipped_count,
-            "failed_count": failed_count,
-            "results": results,
-        }
+        return InitializeShortlistTrackersResponse(
+            created_count=total_created,
+            skipped_count=skipped_count,
+            failed_count=failed_count,
+            results=results,
+        ).model_dump(exclude_none=True)
+
+    except ValidationError as e:
+        return map_pydantic_validation_error(e).to_dict()
 
     except ToolError as e:
         # Known tool errors with structured error information

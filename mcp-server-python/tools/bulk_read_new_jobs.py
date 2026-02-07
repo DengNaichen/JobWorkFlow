@@ -8,12 +8,15 @@ for jobs with status='new'.
 
 from typing import Dict, Any
 
-from utils.validation import validate_all_parameters
+from pydantic import ValidationError
+
+from schemas.bulk_read_new_jobs import BulkReadNewJobsRequest, BulkReadNewJobsResponse
 from utils.cursor import decode_cursor
 from db.jobs_reader import get_connection, query_new_jobs
 from utils.pagination import paginate_results
 from models.job import to_job_schema
 from models.errors import ToolError, create_internal_error
+from utils.pydantic_error_mapper import map_pydantic_validation_error
 
 
 def bulk_read_new_jobs(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -59,36 +62,35 @@ def bulk_read_new_jobs(args: Dict[str, Any]) -> Dict[str, Any]:
         - 7.1-7.7: Cursor-based pagination support
     """
     try:
-        # Step 1: Extract and validate all input parameters
-        limit = args.get("limit")
-        cursor_str = args.get("cursor")
-        db_path = args.get("db_path")
-
-        # Validate parameters (raises ToolError on invalid input)
-        validated_limit, validated_cursor, validated_db_path = validate_all_parameters(
-            limit=limit, cursor=cursor_str, db_path=db_path
-        )
+        # Step 1: Validate input parameters through Pydantic schema
+        request = BulkReadNewJobsRequest.model_validate(args)
 
         # Step 2: Decode cursor if provided
         # Returns None for first page, or (captured_at, id) tuple for subsequent pages
-        cursor_state = decode_cursor(validated_cursor)
+        cursor_state = decode_cursor(request.cursor)
 
         # Step 3: Query database for new jobs
         # Uses context manager to ensure connection is always closed
-        with get_connection(validated_db_path) as conn:
+        with get_connection(request.db_path) as conn:
             # Query limit+1 rows to determine if more pages exist
-            rows = query_new_jobs(conn=conn, limit=validated_limit, cursor=cursor_state)
+            rows = query_new_jobs(conn=conn, limit=request.limit, cursor=cursor_state)
 
         # Step 4: Apply pagination logic
         # Returns (page, has_more, next_cursor)
-        page, has_more, next_cursor = paginate_results(rows, validated_limit)
+        page, has_more, next_cursor = paginate_results(rows, request.limit)
 
         # Step 5: Map database rows to stable output schema
         # Ensures only fixed fields are included, no arbitrary columns
         jobs = [to_job_schema(row) for row in page]
 
         # Step 6: Build and return response
-        return {"jobs": jobs, "count": len(jobs), "has_more": has_more, "next_cursor": next_cursor}
+        return BulkReadNewJobsResponse(
+            jobs=jobs, count=len(jobs), has_more=has_more, next_cursor=next_cursor
+        ).model_dump()
+
+    except ValidationError as e:
+        validation_error = map_pydantic_validation_error(e)
+        return validation_error.to_dict()
 
     except ToolError as e:
         # Known tool errors with structured error information

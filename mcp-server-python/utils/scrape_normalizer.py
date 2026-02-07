@@ -126,17 +126,22 @@ def clean_record(record: Dict[str, Any], source_override: Optional[str] = None) 
     captured_at = parse_captured_at(record.get("date_posted"))
 
     # Build cleaned record (Requirement 4.1, 4.5)
-    return {
+    cleaned = {
         "source": source,
         "company": company,
         "title": title,
         "location": location,
         "url": url,
         "description": description,
+        # Canonical snake_case keys used by DB writer path.
+        "job_id": job_id,
+        "captured_at": captured_at,
+        # Backward-compatible aliases kept during migration period.
         "jobId": job_id,
         "capturedAt": captured_at,
         "id": str(uuid.uuid4()),
     }
+    return cleaned
 
 
 def filter_records(

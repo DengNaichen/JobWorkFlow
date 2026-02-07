@@ -7,6 +7,10 @@ to provide a safe tracker status update tool with Resume Written guardrails.
 
 from typing import Dict, Any, Optional, List
 
+from pydantic import ValidationError
+
+from schemas.update_tracker_status import UpdateTrackerStatusRequest, UpdateTrackerStatusResponse
+from utils.pydantic_error_mapper import map_pydantic_validation_error
 from utils.validation import validate_update_tracker_status_parameters
 from utils.tracker_parser import parse_tracker_with_error_mapping
 from utils.tracker_policy import validate_transition
@@ -28,24 +32,17 @@ def _build_response(
     warnings: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Build structured success/blocked response payload."""
-    response = {
-        "tracker_path": tracker_path,
-        "previous_status": previous_status,
-        "target_status": target_status,
-        "action": action,
-        "success": success,
-        "dry_run": dry_run,
-    }
-
-    if error_message is not None:
-        response["error"] = error_message
-
-    if guardrail_check_passed is not None:
-        response["guardrail_check_passed"] = guardrail_check_passed
-
-    response["warnings"] = warnings or []
-
-    return response
+    return UpdateTrackerStatusResponse(
+        tracker_path=tracker_path,
+        previous_status=previous_status,
+        target_status=target_status,
+        action=action,
+        success=success,
+        dry_run=dry_run,
+        error=error_message,
+        guardrail_check_passed=guardrail_check_passed,
+        warnings=warnings or [],
+    ).model_dump(exclude_none=True)
 
 
 def build_success_response(
@@ -162,18 +159,17 @@ def update_tracker_status(args: Dict[str, Any]) -> Dict[str, Any]:
         - 10.1-10.6: Error handling
     """
     try:
+        request = UpdateTrackerStatusRequest.model_validate(args)
+        extra_fields = request.model_extra or {}
+
         # Step 1: Validate input parameters (Requirements 1.1-1.6)
         # This will raise ToolError with VALIDATION_ERROR if invalid
         tracker_path, target_status, dry_run, force = validate_update_tracker_status_parameters(
-            tracker_path=args.get("tracker_path"),
-            target_status=args.get("target_status"),
-            dry_run=args.get("dry_run"),
-            force=args.get("force"),
-            **{
-                k: v
-                for k, v in args.items()
-                if k not in ["tracker_path", "target_status", "dry_run", "force"]
-            },
+            tracker_path=request.tracker_path,
+            target_status=request.target_status,
+            dry_run=request.dry_run,
+            force=request.force,
+            **extra_fields,
         )
 
         # Step 2: Parse tracker file and extract current status (Requirements 2.1-2.5)
@@ -267,6 +263,9 @@ def update_tracker_status(args: Dict[str, Any]) -> Dict[str, Any]:
             guardrail_check_passed=guardrail_check_passed,
             warnings=warnings,
         )
+
+    except ValidationError as e:
+        return map_pydantic_validation_error(e).to_dict()
 
     except ToolError as e:
         # Known tool errors with structured error information (Requirements 10.1-10.6)

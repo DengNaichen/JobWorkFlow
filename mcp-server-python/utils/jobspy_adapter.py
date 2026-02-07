@@ -21,6 +21,12 @@ class PreflightDNSError(Exception):
     pass
 
 
+class ScrapeProviderError(Exception):
+    """Raised when upstream provider/jobspy scraping fails for a term."""
+
+    pass
+
+
 def preflight_dns_check(
     host: str,
     retry_count: int = 3,
@@ -90,8 +96,11 @@ def scrape_jobs_for_term(
         hours_old: Only return jobs posted within the last N hours
 
     Returns:
-        List of raw source records as dictionaries. Returns empty list if
-        scraping fails or returns no results.
+        List of raw source records as dictionaries. Returns empty list only
+        when provider call succeeds but yields no rows.
+
+    Raises:
+        ScrapeProviderError: If provider call fails (network/API/provider issue)
 
     Requirements:
         - 3.1: Accept per-term config and return raw source records
@@ -118,7 +127,7 @@ def scrape_jobs_for_term(
         records = df.to_dict(orient="records")
         return records
 
-    except Exception:
-        # Return empty list on any scraping error
-        # The caller will handle error reporting
-        return []
+    except Exception as e:
+        # Surface provider failures so caller can mark per-term failure instead
+        # of silently reporting a successful zero-result scrape.
+        raise ScrapeProviderError(f"Provider scrape failed for term '{term}': {e}") from e

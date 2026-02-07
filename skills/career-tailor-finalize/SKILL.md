@@ -24,17 +24,18 @@ Do not run ingestion or triage tools in this skill.
 
 ## Workflow
 1. Build one `items[]` batch from shortlisted trackers.
-2. Run an LLM fill pass to replace placeholder bullets in each `resume.tex` before compile.
-3. Run `career_tailor` once per batch.
-4. Use only `career_tailor.successful_items` for `finalize_resume_batch`.
-5. Keep failed items in `shortlist`/`reviewed` with explicit reasons.
-6. Use `update_tracker_status` only for targeted repair actions.
+2. Run `career_tailor` bootstrap pass to materialize per-item workspace files (`resume.tex`, `ai_context.md`, `resume.pdf` attempt).
+3. Run an LLM fill pass on the materialized `resume.tex` files to replace placeholder bullets.
+4. Run `career_tailor` again for compile/validation on edited files.
+5. Use only second-pass `career_tailor.successful_items` for `finalize_resume_batch`.
+6. Keep failed items in `shortlist`/`reviewed` with explicit reasons.
+7. Use `update_tracker_status` only for targeted repair actions.
 
-## LLM Fill Pass (Required Before `career_tailor`)
+## LLM Fill Pass (Required Between Two `career_tailor` Passes)
 - Target files: `data/applications/<slug>/resume/resume.tex`
 - Context files: `data/templates/full_resume.md` and each tracker's Job Description
 - Edit scope: bullet text only (Project Experience + Work Experience)
-- Must replace all placeholders like `WORK-BULLET-POINT-*`, `AI-PROJECT-BULLET-*`, `BE-PROJECT-BULLET-*`
+- Must replace all placeholders like `WORK-BULLET-POINT-*`, `PROJECT-AI-*`, `PROJECT-BE-*`
 - Never change macros/sections/header/education/skills
 
 Use this execution prompt for each resume file:
@@ -56,16 +57,23 @@ Rules:
 Output:
 - Apply direct edits to resume.tex.
 - Ensure zero remaining placeholder tokens matching:
-  WORK-BULLET-POINT-|AI-PROJECT-BULLET-|BE-PROJECT-BULLET-
+  WORK-BULLET-POINT-|PROJECT-AI-|PROJECT-BE-
 ```
 
-Preflight check before `career_tailor`:
+Preflight check before second `career_tailor` pass:
 
 ```bash
-rg -n "WORK-BULLET-POINT-|AI-PROJECT-BULLET-|BE-PROJECT-BULLET-" data/applications/*/resume/resume.tex
+files="$(find data/applications -type f -path '*/resume/resume.tex')"
+if [ -z "$files" ]; then
+  echo "No resume.tex files yet. Run first-pass career_tailor bootstrap first."
+else
+  echo "$files" | xargs rg -n "WORK-BULLET-POINT-|PROJECT-AI-|PROJECT-BE-"
+fi
 ```
 
-Expected: no matches.
+Expected:
+- On first-time runs before bootstrap: informational message above.
+- After bootstrap: no matches.
 
 ## Tailoring Rules (Spirit Preserved)
 - Source of truth content: `data/templates/full_resume.md` + tracker JD.

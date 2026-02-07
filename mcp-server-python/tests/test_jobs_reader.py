@@ -6,17 +6,10 @@ Tests connection management, path resolution, and query execution.
 
 import pytest
 import sqlite3
-import tempfile
-import os
 from pathlib import Path
 from datetime import datetime, timezone
 
-from db.jobs_reader import (
-    resolve_db_path,
-    get_connection,
-    query_new_jobs,
-    DEFAULT_DB_PATH
-)
+from db.jobs_reader import resolve_db_path, get_connection, query_new_jobs
 from models.errors import ToolError, ErrorCode
 
 
@@ -105,7 +98,10 @@ class TestGetConnection:
             with pytest.raises(sqlite3.OperationalError) as exc_info:
                 conn.execute("INSERT INTO test VALUES (1)")
 
-            assert "readonly" in str(exc_info.value).lower() or "read-only" in str(exc_info.value).lower()
+            assert (
+                "readonly" in str(exc_info.value).lower()
+                or "read-only" in str(exc_info.value).lower()
+            )
 
     def test_connection_returns_dict_rows(self, tmp_path):
         """Test that connection is configured for dictionary-style row access."""
@@ -190,24 +186,27 @@ class TestQueryNewJobs:
         """)
 
         for job in jobs:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO jobs (
                     job_id, title, company, description, url, location,
                     source, status, captured_at, payload_json, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                job.get("job_id", ""),
-                job.get("title", ""),
-                job.get("company", ""),
-                job.get("description", ""),
-                job["url"],  # Required
-                job.get("location", ""),
-                job.get("source", ""),
-                job.get("status", "new"),
-                job.get("captured_at", datetime.now(timezone.utc).isoformat()),
-                "{}",  # payload_json
-                datetime.now(timezone.utc).isoformat()
-            ))
+            """,
+                (
+                    job.get("job_id", ""),
+                    job.get("title", ""),
+                    job.get("company", ""),
+                    job.get("description", ""),
+                    job["url"],  # Required
+                    job.get("location", ""),
+                    job.get("source", ""),
+                    job.get("status", "new"),
+                    job.get("captured_at", datetime.now(timezone.utc).isoformat()),
+                    "{}",  # payload_json
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
 
         conn.commit()
         conn.close()
@@ -243,10 +242,7 @@ class TestQueryNewJobs:
     def test_query_respects_limit(self, tmp_path):
         """Test query respects the limit parameter."""
         db_path = tmp_path / "test.db"
-        jobs = [
-            {"url": f"http://example.com/{i}", "title": f"Job {i}"}
-            for i in range(10)
-        ]
+        jobs = [{"url": f"http://example.com/{i}", "title": f"Job {i}"} for i in range(10)]
         self.create_test_db(db_path, jobs)
 
         with get_connection(str(db_path)) as conn:
@@ -265,17 +261,17 @@ class TestQueryNewJobs:
             {
                 "url": "http://example.com/1",
                 "title": "Job 1",
-                "captured_at": base_time.replace(hour=10).isoformat()
+                "captured_at": base_time.replace(hour=10).isoformat(),
             },
             {
                 "url": "http://example.com/2",
                 "title": "Job 2",
-                "captured_at": base_time.replace(hour=12).isoformat()
+                "captured_at": base_time.replace(hour=12).isoformat(),
             },
             {
                 "url": "http://example.com/3",
                 "title": "Job 3",
-                "captured_at": base_time.replace(hour=14).isoformat()
+                "captured_at": base_time.replace(hour=14).isoformat(),
             },
         ]
         self.create_test_db(db_path, jobs)
@@ -307,7 +303,7 @@ class TestQueryNewJobs:
             {
                 "url": f"http://example.com/{i}",
                 "title": f"Job {i}",
-                "captured_at": base_time.replace(hour=10 + i).isoformat()
+                "captured_at": base_time.replace(hour=10 + i).isoformat(),
             }
             for i in range(5)
         ]
@@ -336,15 +332,17 @@ class TestQueryNewJobs:
     def test_query_returns_fixed_schema_fields(self, tmp_path):
         """Test query returns only the fixed schema fields."""
         db_path = tmp_path / "test.db"
-        jobs = [{
-            "url": "http://example.com/1",
-            "job_id": "12345",
-            "title": "Software Engineer",
-            "company": "Example Corp",
-            "description": "Great job",
-            "location": "Toronto, ON",
-            "source": "linkedin"
-        }]
+        jobs = [
+            {
+                "url": "http://example.com/1",
+                "job_id": "12345",
+                "title": "Software Engineer",
+                "company": "Example Corp",
+                "description": "Great job",
+                "location": "Toronto, ON",
+                "source": "linkedin",
+            }
+        ]
         self.create_test_db(db_path, jobs)
 
         with get_connection(str(db_path)) as conn:
@@ -355,8 +353,16 @@ class TestQueryNewJobs:
 
         # Check all required fields are present
         expected_fields = {
-            "id", "job_id", "title", "company", "description",
-            "url", "location", "source", "status", "captured_at"
+            "id",
+            "job_id",
+            "title",
+            "company",
+            "description",
+            "url",
+            "location",
+            "source",
+            "status",
+            "captured_at",
         }
         assert set(job.keys()) == expected_fields
 
@@ -373,15 +379,17 @@ class TestQueryNewJobs:
     def test_query_handles_null_fields(self, tmp_path):
         """Test query handles null/missing fields correctly."""
         db_path = tmp_path / "test.db"
-        jobs = [{
-            "url": "http://example.com/1",
-            "job_id": None,
-            "title": None,
-            "company": None,
-            "description": None,
-            "location": None,
-            "source": None
-        }]
+        jobs = [
+            {
+                "url": "http://example.com/1",
+                "job_id": None,
+                "title": None,
+                "company": None,
+                "description": None,
+                "location": None,
+                "source": None,
+            }
+        ]
         self.create_test_db(db_path, jobs)
 
         with get_connection(str(db_path)) as conn:
@@ -443,24 +451,27 @@ class TestQueryShortlistJobs:
         """)
 
         for job in jobs:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO jobs (
                     job_id, title, company, description, url, location,
                     source, status, captured_at, payload_json, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                job.get("job_id", ""),
-                job.get("title", ""),
-                job.get("company", ""),
-                job.get("description", ""),
-                job["url"],  # Required
-                job.get("location", ""),
-                job.get("source", ""),
-                job.get("status", "new"),
-                job.get("captured_at", datetime.now(timezone.utc).isoformat()),
-                "{}",  # payload_json
-                datetime.now(timezone.utc).isoformat()
-            ))
+            """,
+                (
+                    job.get("job_id", ""),
+                    job.get("title", ""),
+                    job.get("company", ""),
+                    job.get("description", ""),
+                    job["url"],  # Required
+                    job.get("location", ""),
+                    job.get("source", ""),
+                    job.get("status", "new"),
+                    job.get("captured_at", datetime.now(timezone.utc).isoformat()),
+                    "{}",  # payload_json
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
 
         conn.commit()
         conn.close()
@@ -472,6 +483,7 @@ class TestQueryShortlistJobs:
 
         with get_connection(str(db_path)) as conn:
             from db.jobs_reader import query_shortlist_jobs
+
             results = query_shortlist_jobs(conn, limit=50)
 
         assert results == []
@@ -489,6 +501,7 @@ class TestQueryShortlistJobs:
 
         with get_connection(str(db_path)) as conn:
             from db.jobs_reader import query_shortlist_jobs
+
             results = query_shortlist_jobs(conn, limit=50)
 
         assert len(results) == 2
@@ -506,6 +519,7 @@ class TestQueryShortlistJobs:
 
         with get_connection(str(db_path)) as conn:
             from db.jobs_reader import query_shortlist_jobs
+
             results = query_shortlist_jobs(conn, limit=5)
 
         # Should return exactly 5 rows (unlike query_new_jobs which returns limit+1)
@@ -521,19 +535,19 @@ class TestQueryShortlistJobs:
                 "url": "http://example.com/1",
                 "title": "Job 1",
                 "status": "shortlist",
-                "captured_at": base_time.replace(hour=10).isoformat()
+                "captured_at": base_time.replace(hour=10).isoformat(),
             },
             {
                 "url": "http://example.com/2",
                 "title": "Job 2",
                 "status": "shortlist",
-                "captured_at": base_time.replace(hour=12).isoformat()
+                "captured_at": base_time.replace(hour=12).isoformat(),
             },
             {
                 "url": "http://example.com/3",
                 "title": "Job 3",
                 "status": "shortlist",
-                "captured_at": base_time.replace(hour=14).isoformat()
+                "captured_at": base_time.replace(hour=14).isoformat(),
             },
         ]
         self.create_test_db(db_path, jobs)
@@ -541,10 +555,12 @@ class TestQueryShortlistJobs:
         # Query multiple times
         with get_connection(str(db_path)) as conn:
             from db.jobs_reader import query_shortlist_jobs
+
             results1 = query_shortlist_jobs(conn, limit=10)
 
         with get_connection(str(db_path)) as conn:
             from db.jobs_reader import query_shortlist_jobs
+
             results2 = query_shortlist_jobs(conn, limit=10)
 
         # Results should be identical
@@ -561,20 +577,23 @@ class TestQueryShortlistJobs:
     def test_query_returns_fixed_schema_fields(self, tmp_path):
         """Test query returns only the required fields for tracker generation."""
         db_path = tmp_path / "test.db"
-        jobs = [{
-            "url": "http://example.com/1",
-            "job_id": "12345",
-            "title": "Software Engineer",
-            "company": "Example Corp",
-            "description": "Great job",
-            "location": "Toronto, ON",
-            "source": "linkedin",
-            "status": "shortlist"
-        }]
+        jobs = [
+            {
+                "url": "http://example.com/1",
+                "job_id": "12345",
+                "title": "Software Engineer",
+                "company": "Example Corp",
+                "description": "Great job",
+                "location": "Toronto, ON",
+                "source": "linkedin",
+                "status": "shortlist",
+            }
+        ]
         self.create_test_db(db_path, jobs)
 
         with get_connection(str(db_path)) as conn:
             from db.jobs_reader import query_shortlist_jobs
+
             results = query_shortlist_jobs(conn, limit=50)
 
         assert len(results) == 1
@@ -582,8 +601,14 @@ class TestQueryShortlistJobs:
 
         # Check all required fields are present
         expected_fields = {
-            "id", "job_id", "title", "company", "description",
-            "url", "captured_at", "status"
+            "id",
+            "job_id",
+            "title",
+            "company",
+            "description",
+            "url",
+            "captured_at",
+            "status",
         }
         assert set(job.keys()) == expected_fields
 
@@ -598,18 +623,21 @@ class TestQueryShortlistJobs:
     def test_query_handles_null_fields(self, tmp_path):
         """Test query handles null/missing fields correctly."""
         db_path = tmp_path / "test.db"
-        jobs = [{
-            "url": "http://example.com/1",
-            "job_id": None,
-            "title": None,
-            "company": None,
-            "description": None,
-            "status": "shortlist"
-        }]
+        jobs = [
+            {
+                "url": "http://example.com/1",
+                "job_id": None,
+                "title": None,
+                "company": None,
+                "description": None,
+                "status": "shortlist",
+            }
+        ]
         self.create_test_db(db_path, jobs)
 
         with get_connection(str(db_path)) as conn:
             from db.jobs_reader import query_shortlist_jobs
+
             results = query_shortlist_jobs(conn, limit=50)
 
         assert len(results) == 1
@@ -627,14 +655,30 @@ class TestQueryShortlistJobs:
         same_time = datetime(2026, 2, 5, 12, 0, 0, tzinfo=timezone.utc).isoformat()
 
         jobs = [
-            {"url": "http://example.com/1", "title": "Job 1", "status": "shortlist", "captured_at": same_time},
-            {"url": "http://example.com/2", "title": "Job 2", "status": "shortlist", "captured_at": same_time},
-            {"url": "http://example.com/3", "title": "Job 3", "status": "shortlist", "captured_at": same_time},
+            {
+                "url": "http://example.com/1",
+                "title": "Job 1",
+                "status": "shortlist",
+                "captured_at": same_time,
+            },
+            {
+                "url": "http://example.com/2",
+                "title": "Job 2",
+                "status": "shortlist",
+                "captured_at": same_time,
+            },
+            {
+                "url": "http://example.com/3",
+                "title": "Job 3",
+                "status": "shortlist",
+                "captured_at": same_time,
+            },
         ]
         self.create_test_db(db_path, jobs)
 
         with get_connection(str(db_path)) as conn:
             from db.jobs_reader import query_shortlist_jobs
+
             results = query_shortlist_jobs(conn, limit=10)
 
         # All have same captured_at, so should be ordered by id DESC
@@ -659,6 +703,7 @@ class TestQueryShortlistJobs:
         # Execute query
         with get_connection(str(db_path)) as conn:
             from db.jobs_reader import query_shortlist_jobs
+
             results = query_shortlist_jobs(conn, limit=50)
 
         # Snapshot database after query

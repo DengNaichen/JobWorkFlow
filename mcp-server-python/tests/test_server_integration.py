@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 
-
 from server import (
     mcp,
     bulk_read_new_jobs_tool,
@@ -50,24 +49,27 @@ class TestServerIntegration:
         """)
 
         for job in jobs:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO jobs (
                     job_id, title, company, description, url, location,
                     source, status, captured_at, payload_json, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                job.get("job_id", ""),
-                job.get("title", ""),
-                job.get("company", ""),
-                job.get("description", ""),
-                job["url"],  # Required
-                job.get("location", ""),
-                job.get("source", ""),
-                job.get("status", "new"),
-                job.get("captured_at", datetime.now(timezone.utc).isoformat()),
-                "{}",  # payload_json
-                datetime.now(timezone.utc).isoformat()
-            ))
+            """,
+                (
+                    job.get("job_id", ""),
+                    job.get("title", ""),
+                    job.get("company", ""),
+                    job.get("description", ""),
+                    job["url"],  # Required
+                    job.get("location", ""),
+                    job.get("source", ""),
+                    job.get("status", "new"),
+                    job.get("captured_at", datetime.now(timezone.utc).isoformat()),
+                    "{}",  # payload_json
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
 
         conn.commit()
         conn.close()
@@ -109,10 +111,10 @@ class TestServerIntegration:
     def test_tool_has_correct_metadata(self):
         """Test that the tool has correct metadata."""
         tool = mcp._tool_manager._tools["bulk_read_new_jobs"]
-        
+
         # Check tool name
         assert tool.name == "bulk_read_new_jobs"
-        
+
         # Check tool has description
         assert tool.description is not None
         assert "status='new'" in tool.description
@@ -141,10 +143,7 @@ class TestServerIntegration:
         """Test that the tool function uses default limit correctly."""
         # Create test database
         db_path = tmp_path / "test.db"
-        jobs = [
-            {"url": f"http://example.com/{i}", "title": f"Job {i}"}
-            for i in range(10)
-        ]
+        jobs = [{"url": f"http://example.com/{i}", "title": f"Job {i}"} for i in range(10)]
         self.create_test_db(db_path, jobs)
 
         # Call without specifying limit (should use default 50)
@@ -158,10 +157,7 @@ class TestServerIntegration:
         """Test that the tool function respects custom limit."""
         # Create test database
         db_path = tmp_path / "test.db"
-        jobs = [
-            {"url": f"http://example.com/{i}", "title": f"Job {i}"}
-            for i in range(10)
-        ]
+        jobs = [{"url": f"http://example.com/{i}", "title": f"Job {i}"} for i in range(10)]
         self.create_test_db(db_path, jobs)
 
         # Call with custom limit
@@ -180,7 +176,7 @@ class TestServerIntegration:
             {
                 "url": f"http://example.com/{i}",
                 "title": f"Job {i}",
-                "captured_at": base_time.replace(hour=10 + i).isoformat()
+                "captured_at": base_time.replace(hour=10 + i).isoformat(),
             }
             for i in range(10)
         ]
@@ -191,11 +187,7 @@ class TestServerIntegration:
         assert page1["has_more"] is True
 
         # Get second page with cursor
-        page2 = bulk_read_new_jobs_tool(
-            limit=5,
-            cursor=page1["next_cursor"],
-            db_path=str(db_path)
-        )
+        page2 = bulk_read_new_jobs_tool(limit=5, cursor=page1["next_cursor"], db_path=str(db_path))
 
         # Should get remaining jobs
         assert page2["count"] == 5
@@ -239,11 +231,7 @@ class TestServerIntegration:
         self.create_test_db(db_path, jobs)
 
         # Call with explicit None for optional parameters
-        result = bulk_read_new_jobs_tool(
-            limit=50,
-            cursor=None,
-            db_path=str(db_path)
-        )
+        result = bulk_read_new_jobs_tool(limit=50, cursor=None, db_path=str(db_path))
 
         # Should succeed
         assert "error" not in result
@@ -254,7 +242,7 @@ class TestServerIntegration:
         # This test verifies that all imports in server.py are valid
         # and that the module initializes correctly
         from server import mcp, bulk_read_new_jobs_tool, main
-        
+
         assert mcp is not None
         assert bulk_read_new_jobs_tool is not None
         assert main is not None
@@ -264,18 +252,18 @@ class TestServerIntegration:
         """Test that the tool function has comprehensive documentation."""
         # Check that the docstring exists and includes key information
         docstring = bulk_read_new_jobs_tool.__doc__
-        
+
         assert docstring is not None
         assert "Args:" in docstring
         assert "Returns:" in docstring
         assert "Examples:" in docstring
         assert "Requirements:" in docstring
-        
+
         # Check that key parameters are documented
         assert "limit" in docstring
         assert "cursor" in docstring
         assert "db_path" in docstring
-        
+
         # Check that return structure is documented
         assert "jobs" in docstring
         assert "count" in docstring
@@ -285,20 +273,20 @@ class TestServerIntegration:
     def test_tool_function_signature_matches_spec(self):
         """Test that the tool function signature matches the specification."""
         import inspect
-        
+
         sig = inspect.signature(bulk_read_new_jobs_tool)
         params = sig.parameters
-        
+
         # Check parameter names
         assert "limit" in params
         assert "cursor" in params
         assert "db_path" in params
-        
+
         # Check parameter defaults
         assert params["limit"].default == 50
         assert params["cursor"].default is None
         assert params["db_path"].default is None
-        
+
         # Check return type annotation
         assert sig.return_annotation is dict
 
@@ -517,10 +505,10 @@ Body
     def test_scrape_jobs_tool_has_correct_metadata(self):
         """Test that scrape_jobs tool has correct metadata."""
         tool = mcp._tool_manager._tools["scrape_jobs"]
-        
+
         # Check tool name
         assert tool.name == "scrape_jobs"
-        
+
         # Check tool has description
         assert tool.description is not None
         assert "scrape" in tool.description.lower()
@@ -530,13 +518,13 @@ Body
         """Test that scrape_jobs tool function has comprehensive documentation."""
         # Check that the docstring exists and includes key information
         docstring = scrape_jobs_tool.__doc__
-        
+
         assert docstring is not None
         assert "Args:" in docstring
         assert "Returns:" in docstring
         assert "Examples:" in docstring
         assert "Requirements:" in docstring
-        
+
         # Check that key parameters are documented
         assert "terms" in docstring
         assert "location" in docstring
@@ -545,7 +533,7 @@ Body
         assert "hours_old" in docstring
         assert "db_path" in docstring
         assert "dry_run" in docstring
-        
+
         # Check that return structure is documented
         assert "run_id" in docstring
         assert "started_at" in docstring
@@ -557,10 +545,10 @@ Body
     def test_scrape_jobs_tool_function_signature_matches_spec(self):
         """Test that scrape_jobs tool function signature matches the specification."""
         import inspect
-        
+
         sig = inspect.signature(scrape_jobs_tool)
         params = sig.parameters
-        
+
         # Check parameter names match design doc
         assert "terms" in params
         assert "location" in params
@@ -577,10 +565,10 @@ Body
         assert "save_capture_json" in params
         assert "capture_dir" in params
         assert "dry_run" in params
-        
+
         # Check all parameters have None defaults (tool handler applies defaults)
         for param_name, param in params.items():
             assert param.default is None, f"Parameter {param_name} should default to None"
-        
+
         # Check return type annotation
         assert sig.return_annotation is dict

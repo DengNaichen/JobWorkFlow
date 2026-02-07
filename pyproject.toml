@@ -7,12 +7,12 @@ dependencies = [
     # MCP Server dependencies
     "mcp>=1.0.0",
     "pydantic>=2.0.0",
-    
+
     # JobSpy and data processing dependencies
     "python-jobspy>=1.1.82",
     "pandas>=2.3.3",
     "numpy>=1.26.3",
-    
+
     # Utilities
     "python-frontmatter>=1.1.0",
     "python-dateutil>=2.9.0",

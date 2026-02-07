@@ -17,7 +17,7 @@ from tools.scrape_jobs import scrape_jobs
 def test_complete_response_structure():
     """
     Verify the complete structured response payload meets all requirements.
-    
+
     **Validates: Requirements 10.1, 10.2, 10.3, 10.5**
     """
     # Mock raw records for two terms
@@ -39,9 +39,9 @@ def test_complete_response_structure():
             "location": "Ottawa",
             "site": "linkedin",
             "id": "job2",
-        }
+        },
     ]
-    
+
     raw_records_term2 = [
         {
             "job_url": "https://linkedin.com/jobs/3",
@@ -53,14 +53,14 @@ def test_complete_response_structure():
             "id": "job3",
         }
     ]
-    
+
     def mock_scrape(term, **kwargs):
         if term == "backend engineer":
             return raw_records_term1
         elif term == "ai engineer":
             return raw_records_term2
         return []
-    
+
     with patch("tools.scrape_jobs.scrape_jobs_for_term", side_effect=mock_scrape):
         with patch("tools.scrape_jobs.JobsIngestWriter") as mock_writer_class:
             mock_writer = MagicMock()
@@ -68,7 +68,7 @@ def test_complete_response_structure():
             # Second term: 1 insert, 0 duplicates
             mock_writer.insert_cleaned_records.side_effect = [(2, 0), (1, 0)]
             mock_writer_class.return_value.__enter__.return_value = mock_writer
-            
+
             response = scrape_jobs(
                 terms=["backend engineer", "ai engineer"],
                 location="Ontario, Canada",
@@ -77,11 +77,11 @@ def test_complete_response_structure():
                 hours_old=2,
                 dry_run=False,
             )
-    
+
     # Verify response is JSON-serializable (Requirement 10.5)
     json_str = json.dumps(response)
     assert json_str is not None
-    
+
     # Verify run metadata (Requirement 10.1)
     assert "run_id" in response
     assert response["run_id"].startswith("scrape_")
@@ -92,15 +92,15 @@ def test_complete_response_structure():
     assert "duration_ms" in response
     assert isinstance(response["duration_ms"], int)
     assert response["duration_ms"] >= 0
-    
+
     # Verify dry_run flag
     assert "dry_run" in response
     assert response["dry_run"] is False
-    
+
     # Verify ordered term results (Requirement 10.2)
     assert "results" in response
     assert len(response["results"]) == 2
-    
+
     # First term result
     term1_result = response["results"][0]
     assert term1_result["term"] == "backend engineer"
@@ -111,7 +111,7 @@ def test_complete_response_structure():
     assert term1_result["duplicate_count"] == 0
     assert term1_result["skipped_no_url"] == 0
     assert term1_result["skipped_no_description"] == 0
-    
+
     # Second term result
     term2_result = response["results"][1]
     assert term2_result["term"] == "ai engineer"
@@ -120,7 +120,7 @@ def test_complete_response_structure():
     assert term2_result["cleaned_count"] == 1
     assert term2_result["inserted_count"] == 1
     assert term2_result["duplicate_count"] == 0
-    
+
     # Verify aggregate totals (Requirement 10.3)
     assert "totals" in response
     totals = response["totals"]
@@ -138,9 +138,10 @@ def test_complete_response_structure():
 def test_response_structure_with_partial_failure():
     """
     Verify response structure handles partial failures correctly.
-    
+
     **Validates: Requirements 10.2, 10.3**
     """
+
     def mock_scrape(term, **kwargs):
         if term == "backend engineer":
             return [
@@ -156,31 +157,31 @@ def test_response_structure_with_partial_failure():
             ]
         else:
             raise Exception("Network error")
-    
+
     with patch("tools.scrape_jobs.scrape_jobs_for_term", side_effect=mock_scrape):
         with patch("tools.scrape_jobs.JobsIngestWriter") as mock_writer_class:
             mock_writer = MagicMock()
             mock_writer.insert_cleaned_records.return_value = (1, 0)
             mock_writer_class.return_value.__enter__.return_value = mock_writer
-            
+
             response = scrape_jobs(
                 terms=["backend engineer", "ai engineer"],
                 location="Ontario, Canada",
                 dry_run=False,
             )
-    
+
     # Verify both terms are in results
     assert len(response["results"]) == 2
-    
+
     # First term succeeded
     assert response["results"][0]["success"] is True
     assert response["results"][0]["term"] == "backend engineer"
-    
+
     # Second term failed
     assert response["results"][1]["success"] is False
     assert response["results"][1]["term"] == "ai engineer"
     assert "error" in response["results"][1]
-    
+
     # Verify totals reflect partial success
     assert response["totals"]["term_count"] == 2
     assert response["totals"]["successful_terms"] == 1
@@ -192,7 +193,7 @@ def test_response_structure_with_partial_failure():
 def test_response_structure_dry_run():
     """
     Verify response structure in dry_run mode.
-    
+
     **Validates: Requirements 10.1, 10.4**
     """
     raw_records = [
@@ -206,7 +207,7 @@ def test_response_structure_dry_run():
             "id": "job1",
         }
     ]
-    
+
     with patch("tools.scrape_jobs.scrape_jobs_for_term", return_value=raw_records):
         with patch("tools.scrape_jobs.JobsIngestWriter") as mock_writer_class:
             response = scrape_jobs(
@@ -214,19 +215,19 @@ def test_response_structure_dry_run():
                 location="Ontario, Canada",
                 dry_run=True,
             )
-            
+
             # Verify writer was not called in dry_run mode
             mock_writer_class.assert_not_called()
-    
+
     # Verify dry_run flag is set (Requirement 10.4)
     assert response["dry_run"] is True
-    
+
     # Verify counts are computed but no DB writes occurred
     assert response["results"][0]["fetched_count"] == 1
     assert response["results"][0]["cleaned_count"] == 1
     assert response["results"][0]["inserted_count"] == 0
     assert response["results"][0]["duplicate_count"] == 0
-    
+
     # Verify totals reflect dry_run behavior
     assert response["totals"]["fetched_count"] == 1
     assert response["totals"]["cleaned_count"] == 1

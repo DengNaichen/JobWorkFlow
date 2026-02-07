@@ -11,7 +11,7 @@ from utils.slug_resolver import (
     extract_slug_from_resume_path,
     generate_fallback_slug,
     resolve_application_slug,
-    _normalize_text
+    _normalize_text,
 )
 
 
@@ -91,20 +91,28 @@ class TestExtractSlugFromResumePath:
         """Test that invalid path format returns None."""
         # Wrong directory structure
         assert extract_slug_from_resume_path("invalid/path/resume.pdf") is None
-        
+
         # Missing resume.pdf filename
         assert extract_slug_from_resume_path("data/applications/amazon-3629/resume/") is None
-        
+
         # Wrong filename
-        assert extract_slug_from_resume_path("data/applications/amazon-3629/resume/other.pdf") is None
+        assert (
+            extract_slug_from_resume_path("data/applications/amazon-3629/resume/other.pdf") is None
+        )
 
     def test_extract_from_malformed_wiki_link_returns_none(self):
         """Test that malformed wiki-link returns None."""
         # Missing closing brackets
-        assert extract_slug_from_resume_path("[[data/applications/amazon-3629/resume/resume.pdf") is None
-        
+        assert (
+            extract_slug_from_resume_path("[[data/applications/amazon-3629/resume/resume.pdf")
+            is None
+        )
+
         # Extra brackets
-        assert extract_slug_from_resume_path("[[[data/applications/amazon-3629/resume/resume.pdf]]]") is None
+        assert (
+            extract_slug_from_resume_path("[[[data/applications/amazon-3629/resume/resume.pdf]]]")
+            is None
+        )
 
     def test_extract_handles_whitespace(self):
         """Test that whitespace is handled correctly."""
@@ -170,7 +178,7 @@ class TestResolveApplicationSlug:
             "company": "Amazon",
             "position": "Software Engineer",
             "resume_path": "[[data/applications/amazon-3629/resume/resume.pdf]]",
-            "job_db_id": 3629
+            "job_db_id": 3629,
         }
         slug = resolve_application_slug(tracker)
         assert slug == "amazon-3629"
@@ -181,7 +189,7 @@ class TestResolveApplicationSlug:
             "company": "Meta",
             "position": "Senior Engineer",
             "resume_path": None,
-            "job_db_id": 100
+            "job_db_id": 100,
         }
         slug = resolve_application_slug(tracker)
         assert slug == "meta-100"
@@ -192,7 +200,7 @@ class TestResolveApplicationSlug:
             "company": "Google",
             "position": "Staff Engineer",
             "resume_path": None,
-            "job_db_id": None
+            "job_db_id": None,
         }
         slug = resolve_application_slug(tracker)
         assert slug == "google-staff_engineer"
@@ -203,19 +211,14 @@ class TestResolveApplicationSlug:
             "company": "Amazon",
             "position": "Engineer",
             "resume_path": None,
-            "job_db_id": None
+            "job_db_id": None,
         }
         slug = resolve_application_slug(tracker, item_job_db_id=5000)
         assert slug == "amazon-5000"
 
     def test_resolve_item_override_with_tracker_id(self):
         """Test that item_job_db_id takes precedence over tracker job_db_id."""
-        tracker = {
-            "company": "Meta",
-            "position": "Engineer",
-            "resume_path": None,
-            "job_db_id": 100
-        }
+        tracker = {"company": "Meta", "position": "Engineer", "resume_path": None, "job_db_id": 100}
         # Item override should take precedence
         slug = resolve_application_slug(tracker, item_job_db_id=200)
         assert slug == "meta-200"
@@ -226,7 +229,7 @@ class TestResolveApplicationSlug:
             "company": "Amazon",
             "position": "Engineer",
             "resume_path": "invalid/path/format",
-            "job_db_id": 3629
+            "job_db_id": 3629,
         }
         # Should fall back to company-id format
         slug = resolve_application_slug(tracker)
@@ -234,57 +237,34 @@ class TestResolveApplicationSlug:
 
     def test_resolve_empty_resume_path_falls_back(self):
         """Test that empty resume_path triggers fallback generation."""
-        tracker = {
-            "company": "Google",
-            "position": "Engineer",
-            "resume_path": "",
-            "job_db_id": 500
-        }
+        tracker = {"company": "Google", "position": "Engineer", "resume_path": "", "job_db_id": 500}
         slug = resolve_application_slug(tracker)
         assert slug == "google-500"
 
     def test_resolve_missing_company_raises_error(self):
         """Test that missing company field raises ValueError."""
-        tracker = {
-            "position": "Software Engineer",
-            "resume_path": None,
-            "job_db_id": 100
-        }
+        tracker = {"position": "Software Engineer", "resume_path": None, "job_db_id": 100}
         with pytest.raises(ValueError) as exc_info:
             resolve_application_slug(tracker)
         assert "missing required 'company' field" in str(exc_info.value)
 
     def test_resolve_missing_position_raises_error(self):
         """Test that missing position field raises ValueError."""
-        tracker = {
-            "company": "Amazon",
-            "resume_path": None,
-            "job_db_id": 100
-        }
+        tracker = {"company": "Amazon", "resume_path": None, "job_db_id": 100}
         with pytest.raises(ValueError) as exc_info:
             resolve_application_slug(tracker)
         assert "missing required 'position' field" in str(exc_info.value)
 
     def test_resolve_empty_company_raises_error(self):
         """Test that empty company field raises ValueError."""
-        tracker = {
-            "company": "",
-            "position": "Engineer",
-            "resume_path": None,
-            "job_db_id": 100
-        }
+        tracker = {"company": "", "position": "Engineer", "resume_path": None, "job_db_id": 100}
         with pytest.raises(ValueError) as exc_info:
             resolve_application_slug(tracker)
         assert "missing required 'company' field" in str(exc_info.value)
 
     def test_resolve_empty_position_raises_error(self):
         """Test that empty position field raises ValueError."""
-        tracker = {
-            "company": "Amazon",
-            "position": "",
-            "resume_path": None,
-            "job_db_id": 100
-        }
+        tracker = {"company": "Amazon", "position": "", "resume_path": None, "job_db_id": 100}
         with pytest.raises(ValueError) as exc_info:
             resolve_application_slug(tracker)
         assert "missing required 'position' field" in str(exc_info.value)
@@ -295,7 +275,7 @@ class TestResolveApplicationSlug:
             "company": "Amazon",
             "position": "Software Engineer",
             "resume_path": "[[data/applications/amazon-3629/resume/resume.pdf]]",
-            "job_db_id": 3629
+            "job_db_id": 3629,
         }
         slug1 = resolve_application_slug(tracker)
         slug2 = resolve_application_slug(tracker)
@@ -310,7 +290,7 @@ class TestResolveApplicationSlug:
             "status": "Reviewed",
             "resume_path": "[[data/applications/amazon_web_services-3629/resume/resume.pdf]]",
             "application_date": "2026-02-05",
-            "salary": 200000
+            "salary": 200000,
         }
         slug = resolve_application_slug(tracker)
         assert slug == "amazon_web_services-3629"
@@ -322,7 +302,7 @@ class TestResolveApplicationSlug:
             "company": "Amazon",
             "position": "Engineer",
             "resume_path": "[[data/applications/custom-slug-123/resume/resume.pdf]]",
-            "job_db_id": 3629
+            "job_db_id": 3629,
         }
         # Should use slug from resume_path, not generate amazon-3629
         slug = resolve_application_slug(tracker)
@@ -330,12 +310,7 @@ class TestResolveApplicationSlug:
 
     def test_resolve_with_none_item_override(self):
         """Test that explicit None item_job_db_id uses tracker job_db_id."""
-        tracker = {
-            "company": "Meta",
-            "position": "Engineer",
-            "resume_path": None,
-            "job_db_id": 100
-        }
+        tracker = {"company": "Meta", "position": "Engineer", "resume_path": None, "job_db_id": 100}
         # Explicit None should use tracker job_db_id
         slug = resolve_application_slug(tracker, item_job_db_id=None)
         assert slug == "meta-100"
@@ -351,7 +326,7 @@ class TestSlugResolverIntegration:
             "company": "Startup Inc.",
             "position": "Founding Engineer",
             "resume_path": None,
-            "job_db_id": 1
+            "job_db_id": 1,
         }
         slug = resolve_application_slug(tracker)
         assert slug == "startup_inc-1"
@@ -363,7 +338,7 @@ class TestSlugResolverIntegration:
             "company": "Big Corp",
             "position": "Senior Engineer",
             "resume_path": "[[data/applications/big_corp-5000/resume/resume.pdf]]",
-            "job_db_id": 5000
+            "job_db_id": 5000,
         }
         slug = resolve_application_slug(tracker)
         assert slug == "big_corp-5000"
@@ -375,7 +350,7 @@ class TestSlugResolverIntegration:
             "company": "Tech Company",
             "position": "Engineer",
             "resume_path": None,
-            "job_db_id": None  # Tracker doesn't have it
+            "job_db_id": None,  # Tracker doesn't have it
         }
         # Batch item provides the ID
         slug = resolve_application_slug(tracker, item_job_db_id=9999)
@@ -388,7 +363,7 @@ class TestSlugResolverIntegration:
             "company": "Referral Company",
             "position": "Staff Engineer",
             "resume_path": None,
-            "job_db_id": None
+            "job_db_id": None,
         }
         slug = resolve_application_slug(tracker)
         assert slug == "referral_company-staff_engineer"
@@ -399,12 +374,12 @@ class TestSlugResolverIntegration:
             "company": "Consistent Corp",
             "position": "Engineer",
             "resume_path": None,
-            "job_db_id": 777
+            "job_db_id": 777,
         }
-        
+
         # Resolve multiple times
         slugs = [resolve_application_slug(tracker) for _ in range(5)]
-        
+
         # All should be identical
         assert len(set(slugs)) == 1
         assert slugs[0] == "consistent_corp-777"

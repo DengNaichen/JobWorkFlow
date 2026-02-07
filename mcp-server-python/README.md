@@ -952,7 +952,7 @@ result = update_tracker_status_tool(
     tracker_path="trackers/2026-02-05-amazon.md",
     target_status="Resume Written"
 )
-# Returns: {"tracker_path": "...", "previous_status": "Reviewed", "target_status": "Resume Written", 
+# Returns: {"tracker_path": "...", "previous_status": "Reviewed", "target_status": "Resume Written",
 #           "action": "updated", "success": true, "dry_run": false, "guardrail_check_passed": true, "warnings": []}
 
 # No-op - same status
@@ -1045,9 +1045,9 @@ result = finalize_resume_batch_tool(
         "tracker_path": "trackers/2026-02-05-amazon.md"
     }]
 )
-# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 1, "failed_count": 0, 
-#           "dry_run": false, "results": [{"id": 3711, "tracker_path": "...", 
-#           "resume_pdf_path": "data/applications/amazon/resume/resume.pdf", 
+# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 1, "failed_count": 0,
+#           "dry_run": false, "results": [{"id": 3711, "tracker_path": "...",
+#           "resume_pdf_path": "data/applications/amazon/resume/resume.pdf",
 #           "action": "finalized", "success": true}]}
 
 # Finalize multiple jobs in one batch
@@ -1057,12 +1057,12 @@ result = finalize_resume_batch_tool(
         {"id": 3712, "tracker_path": "trackers/2026-02-05-meta.md"}
     ]
 )
-# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 2, "failed_count": 0, 
+# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 2, "failed_count": 0,
 #           "dry_run": false, "results": [...]}
 
 # Empty batch (valid - returns success with zero counts)
 result = finalize_resume_batch_tool(items=[])
-# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 0, "failed_count": 0, 
+# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 0, "failed_count": 0,
 #           "dry_run": false, "results": []}
 
 # Dry-run to preview outcomes without writes
@@ -1070,7 +1070,7 @@ result = finalize_resume_batch_tool(
     items=[{"id": 3711, "tracker_path": "trackers/2026-02-05-amazon.md"}],
     dry_run=True
 )
-# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 1, "failed_count": 0, 
+# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 1, "failed_count": 0,
 #           "dry_run": true, "results": [{"id": 3711, "action": "would_finalize", "success": true}]}
 
 # Use custom run_id and db_path
@@ -1079,7 +1079,7 @@ result = finalize_resume_batch_tool(
     run_id="run_20260206_custom",
     db_path="custom/path/jobs.db"
 )
-# Returns: {"run_id": "run_20260206_custom", "finalized_count": 1, "failed_count": 0, 
+# Returns: {"run_id": "run_20260206_custom", "finalized_count": 1, "failed_count": 0,
 #           "dry_run": false, "results": [...]}
 
 # Override resume_pdf_path for specific item
@@ -1090,23 +1090,23 @@ result = finalize_resume_batch_tool(
         "resume_pdf_path": "custom/path/resume.pdf"
     }]
 )
-# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 1, "failed_count": 0, 
+# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 1, "failed_count": 0,
 #           "dry_run": false, "results": [...]}
 
 # Item failure - missing resume.pdf
 result = finalize_resume_batch_tool(
     items=[{"id": 3711, "tracker_path": "trackers/2026-02-05-amazon.md"}]
 )
-# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 0, "failed_count": 1, 
-#           "dry_run": false, "results": [{"id": 3711, "action": "failed", "success": false, 
+# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 0, "failed_count": 1,
+#           "dry_run": false, "results": [{"id": 3711, "action": "failed", "success": false,
 #           "error": "resume.pdf is missing"}]}
 
 # Item failure - placeholder tokens remain in resume.tex
 result = finalize_resume_batch_tool(
     items=[{"id": 3711, "tracker_path": "trackers/2026-02-05-amazon.md"}]
 )
-# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 0, "failed_count": 1, 
-#           "dry_run": false, "results": [{"id": 3711, "action": "failed", "success": false, 
+# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 0, "failed_count": 1,
+#           "dry_run": false, "results": [{"id": 3711, "action": "failed", "success": false,
 #           "error": "Placeholder tokens found in resume.tex: PROJECT-AI-1, WORK-BULLET-POINT-2"}]}
 
 # Mixed batch - continues processing after one item fails
@@ -1117,7 +1117,7 @@ result = finalize_resume_batch_tool(
         {"id": 3713, "tracker_path": "trackers/2026-02-05-google.md"}   # Success
     ]
 )
-# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 2, "failed_count": 1, 
+# Returns: {"run_id": "run_20260206_8f2f8f1c", "finalized_count": 2, "failed_count": 1,
 #           "dry_run": false, "results": [
 #               {"id": 3711, "action": "finalized", "success": true},
 #               {"id": 3712, "action": "failed", "success": false, "error": "resume.pdf is missing"},
@@ -1126,7 +1126,7 @@ result = finalize_resume_batch_tool(
 
 # Validation error - batch size exceeds 100
 result = finalize_resume_batch_tool(items=[...])  # 101 items
-# Returns: {"error": {"code": "VALIDATION_ERROR", "message": "Batch size exceeds maximum of 100", 
+# Returns: {"error": {"code": "VALIDATION_ERROR", "message": "Batch size exceeds maximum of 100",
 #           "retryable": false}}
 
 # Validation error - duplicate job IDs
@@ -1136,7 +1136,7 @@ result = finalize_resume_batch_tool(
         {"id": 3711, "tracker_path": "trackers/2026-02-05-amazon.md"}  # Duplicate
     ]
 )
-# Returns: {"error": {"code": "VALIDATION_ERROR", "message": "Duplicate job IDs in batch: 3711", 
+# Returns: {"error": {"code": "VALIDATION_ERROR", "message": "Duplicate job IDs in batch: 3711",
 #           "retryable": false}}
 
 # Idempotent - re-running same valid item keeps status as resume_written
@@ -1180,9 +1180,9 @@ result = scrape_jobs_tool(
     results_wanted=50
 )
 # Returns: {"run_id": "scrape_20260206_xyz789", "results": [
-#   {"term": "python developer", "success": true, "fetched_count": 50, "cleaned_count": 48, 
+#   {"term": "python developer", "success": true, "fetched_count": 50, "cleaned_count": 48,
 #    "inserted_count": 35, "duplicate_count": 13, ...},
-#   {"term": "data scientist", "success": true, "fetched_count": 50, "cleaned_count": 47, 
+#   {"term": "data scientist", "success": true, "fetched_count": 50, "cleaned_count": 47,
 #    "inserted_count": 42, "duplicate_count": 5, ...}
 # ], "totals": {...}}
 
@@ -1266,7 +1266,7 @@ result = scrape_jobs_tool(
     terms=["backend engineer"],
     results_wanted=500  # Exceeds maximum of 200
 )
-# Returns: {"error": {"code": "VALIDATION_ERROR", 
+# Returns: {"error": {"code": "VALIDATION_ERROR",
 #           "message": "results_wanted must be between 1 and 200", "retryable": false}}
 
 # Validation error - unknown field
@@ -1274,12 +1274,12 @@ result = scrape_jobs_tool(
     terms=["backend engineer"],
     unknown_field="value"
 )
-# Returns: {"error": {"code": "VALIDATION_ERROR", 
+# Returns: {"error": {"code": "VALIDATION_ERROR",
 #           "message": "Unknown parameter: unknown_field", "retryable": false}}
 
 # Empty terms list - validation error
 result = scrape_jobs_tool(terms=[])
-# Returns: {"error": {"code": "VALIDATION_ERROR", 
+# Returns: {"error": {"code": "VALIDATION_ERROR",
 #           "message": "terms must be a non-empty array", "retryable": false}}
 ```
 

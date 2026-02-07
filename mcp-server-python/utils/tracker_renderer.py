@@ -9,20 +9,17 @@ from typing import Dict, Any
 import yaml
 
 
-def render_tracker_markdown(
-    job: Dict[str, Any],
-    plan: Dict[str, Any]
-) -> str:
+def render_tracker_markdown(job: Dict[str, Any], plan: Dict[str, Any]) -> str:
     """
     Render complete tracker markdown content with frontmatter and sections.
-    
+
     The tracker includes:
     - YAML frontmatter with required stable fields
     - ## Job Description section with description text or fallback
     - ## Notes section (empty)
-    
+
     Initial tracker status is set to "Reviewed" for newly initialized trackers.
-    
+
     Args:
         job: Job record dictionary with fields from database:
             - id: Database primary key
@@ -36,10 +33,10 @@ def render_tracker_markdown(
             - resume_path: Wiki-link path for resume PDF
             - cover_letter_path: Wiki-link path for cover letter PDF
             - application_slug: Workspace directory slug
-            
+
     Returns:
         Complete markdown content as string
-        
+
     Requirements:
         - 2.3: Include required frontmatter fields
         - 2.4: Include ## Job Description section
@@ -48,7 +45,7 @@ def render_tracker_markdown(
         - 10.1: Use exact "## Job Description" heading
         - 10.2: Stable frontmatter field names
         - 10.5: Obsidian Dataview compatible YAML
-        
+
     Examples:
         >>> job = {
         ...     "id": 3629,
@@ -72,7 +69,7 @@ def render_tracker_markdown(
     """
     # Extract application date from captured_at timestamp
     application_date = _extract_date(job["captured_at"])
-    
+
     # Build frontmatter dictionary with required stable fields
     frontmatter = {
         "job_db_id": job["id"],
@@ -87,20 +84,17 @@ def render_tracker_markdown(
         # Compatibility fields for current tracker ecosystem
         "next_action": ["Wait for feedback"],
         "salary": 0,
-        "website": ""
+        "website": "",
     }
-    
+
     # Render YAML frontmatter
     yaml_content = yaml.dump(
-        frontmatter,
-        default_flow_style=False,
-        allow_unicode=True,
-        sort_keys=False
+        frontmatter, default_flow_style=False, allow_unicode=True, sort_keys=False
     )
-    
+
     # Build job description section content
     description_content = _render_job_description(job.get("description"))
-    
+
     # Assemble complete markdown document
     markdown_parts = [
         "---",
@@ -114,25 +108,25 @@ def render_tracker_markdown(
         "## Notes",
         "",
     ]
-    
+
     return "\n".join(markdown_parts)
 
 
 def _extract_date(captured_at: str) -> str:
     """
     Extract ISO date (YYYY-MM-DD) from timestamp string.
-    
+
     Handles both ISO format with T separator and space separator.
-    
+
     Args:
         captured_at: Timestamp string (e.g., "2026-02-04T15:30:00" or "2026-02-04 15:30:00")
-        
+
     Returns:
         ISO date string in YYYY-MM-DD format
-        
+
     Requirements:
         - 10.4: Use ISO date format YYYY-MM-DD
-        
+
     Examples:
         >>> _extract_date("2026-02-04T15:30:00")
         '2026-02-04'
@@ -140,25 +134,25 @@ def _extract_date(captured_at: str) -> str:
         '2026-02-04'
     """
     # Handle both T and space separators
-    if 'T' in captured_at:
-        return captured_at.split('T')[0]
+    if "T" in captured_at:
+        return captured_at.split("T")[0]
     else:
-        return captured_at.split(' ')[0]
+        return captured_at.split(" ")[0]
 
 
 def _render_job_description(description: Any) -> str:
     """
     Render job description content with fallback for missing descriptions.
-    
+
     Args:
         description: Job description text (may be None or empty string)
-        
+
     Returns:
         Description text or fallback message
-        
+
     Requirements:
         - 2.4: Insert description text or fallback when missing
-        
+
     Examples:
         >>> _render_job_description("Build scalable systems")
         'Build scalable systems'

@@ -525,7 +525,7 @@ class TestValidateScrapeJobsParameters:
     def test_all_defaults(self):
         """Test validation with all default values."""
         result = validate_scrape_jobs_parameters()
-        
+
         assert result["terms"] == DEFAULT_SCRAPE_TERMS
         assert result["location"] == "Ontario, Canada"
         assert result["sites"] == ["linkedin"]
@@ -559,9 +559,9 @@ class TestValidateScrapeJobsParameters:
             retry_backoff=3,
             save_capture_json=False,
             capture_dir="custom/capture",
-            dry_run=True
+            dry_run=True,
         )
-        
+
         assert result["terms"] == ["python developer"]
         assert result["location"] == "Toronto, Canada"
         assert result["sites"] == ["linkedin", "indeed"]
@@ -581,10 +581,7 @@ class TestValidateScrapeJobsParameters:
     def test_unknown_property_raises_error(self):
         """Test that unknown properties raise VALIDATION_ERROR."""
         with pytest.raises(ToolError) as exc_info:
-            validate_scrape_jobs_parameters(
-                terms=["python developer"],
-                unknown_param="value"
-            )
+            validate_scrape_jobs_parameters(terms=["python developer"], unknown_param="value")
 
         error = exc_info.value
         assert error.code == ErrorCode.VALIDATION_ERROR
@@ -596,9 +593,7 @@ class TestValidateScrapeJobsParameters:
         """Test that multiple unknown properties are all reported."""
         with pytest.raises(ToolError) as exc_info:
             validate_scrape_jobs_parameters(
-                terms=["python developer"],
-                unknown1="value1",
-                unknown2="value2"
+                terms=["python developer"], unknown1="value1", unknown2="value2"
             )
 
         error = exc_info.value
@@ -698,9 +693,9 @@ class TestValidateScrapeJobsParameters:
             hours_old=1,  # MIN
             retry_count=1,  # MIN
             retry_sleep_seconds=0,  # MIN
-            retry_backoff=1  # MIN
+            retry_backoff=1,  # MIN
         )
-        
+
         assert result["results_wanted"] == 1
         assert result["hours_old"] == 1
         assert result["retry_count"] == 1
@@ -712,9 +707,9 @@ class TestValidateScrapeJobsParameters:
             hours_old=168,  # MAX
             retry_count=10,  # MAX
             retry_sleep_seconds=300,  # MAX
-            retry_backoff=10  # MAX
+            retry_backoff=10,  # MAX
         )
-        
+
         assert result["results_wanted"] == 200
         assert result["hours_old"] == 168
         assert result["retry_count"] == 10

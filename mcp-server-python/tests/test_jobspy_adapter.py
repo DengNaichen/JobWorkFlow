@@ -19,26 +19,28 @@ class TestScrapeJobsForTerm:
     def test_successful_scrape_returns_records(self):
         """Test that successful scrape returns list of records."""
         # Mock DataFrame with sample data
-        mock_df = pd.DataFrame([
-            {
-                "job_url": "https://linkedin.com/jobs/1",
-                "title": "Backend Engineer",
-                "description": "Great job",
-                "company": "TechCorp",
-                "location": "Toronto",
-                "site": "linkedin",
-                "id": "job1",
-            },
-            {
-                "job_url": "https://linkedin.com/jobs/2",
-                "title": "AI Engineer",
-                "description": "Amazing role",
-                "company": "AIStartup",
-                "location": "Ottawa",
-                "site": "linkedin",
-                "id": "job2",
-            },
-        ])
+        mock_df = pd.DataFrame(
+            [
+                {
+                    "job_url": "https://linkedin.com/jobs/1",
+                    "title": "Backend Engineer",
+                    "description": "Great job",
+                    "company": "TechCorp",
+                    "location": "Toronto",
+                    "site": "linkedin",
+                    "id": "job1",
+                },
+                {
+                    "job_url": "https://linkedin.com/jobs/2",
+                    "title": "AI Engineer",
+                    "description": "Amazing role",
+                    "company": "AIStartup",
+                    "location": "Ottawa",
+                    "site": "linkedin",
+                    "id": "job2",
+                },
+            ]
+        )
 
         with patch("utils.jobspy_adapter.jobspy.scrape_jobs", return_value=mock_df):
             result = scrape_jobs_for_term(
@@ -203,11 +205,13 @@ class TestScrapeJobsForTerm:
 
     def test_dataframe_to_dict_conversion(self):
         """Test that DataFrame is correctly converted to list of dicts."""
-        mock_df = pd.DataFrame([
-            {"id": 1, "title": "Job 1", "company": "Company A"},
-            {"id": 2, "title": "Job 2", "company": "Company B"},
-            {"id": 3, "title": "Job 3", "company": "Company C"},
-        ])
+        mock_df = pd.DataFrame(
+            [
+                {"id": 1, "title": "Job 1", "company": "Company A"},
+                {"id": 2, "title": "Job 2", "company": "Company B"},
+                {"id": 3, "title": "Job 3", "company": "Company C"},
+            ]
+        )
 
         with patch("utils.jobspy_adapter.jobspy.scrape_jobs", return_value=mock_df):
             result = scrape_jobs_for_term(
@@ -272,7 +276,9 @@ class TestPreflightDNSCheck:
         """Test that retry uses exponential backoff for sleep duration."""
         mock_sleep = MagicMock()
 
-        with patch("utils.jobspy_adapter.socket.gethostbyname", side_effect=socket.gaierror("Failed")):
+        with patch(
+            "utils.jobspy_adapter.socket.gethostbyname", side_effect=socket.gaierror("Failed")
+        ):
             with patch("utils.jobspy_adapter.time.sleep", mock_sleep):
                 with pytest.raises(PreflightDNSError):
                     preflight_dns_check(
@@ -375,7 +381,9 @@ class TestPreflightDNSCheck:
         """Test behavior with backoff multiplier of 1.0 (no exponential growth)."""
         mock_sleep = MagicMock()
 
-        with patch("utils.jobspy_adapter.socket.gethostbyname", side_effect=socket.gaierror("Failed")):
+        with patch(
+            "utils.jobspy_adapter.socket.gethostbyname", side_effect=socket.gaierror("Failed")
+        ):
             with patch("utils.jobspy_adapter.time.sleep", mock_sleep):
                 with pytest.raises(PreflightDNSError):
                     preflight_dns_check(

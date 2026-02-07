@@ -133,7 +133,7 @@ Real project description here.
         tex_path.write_text("content")
 
         # Make file unreadable (Unix-like systems only)
-        if os.name != 'nt':  # Skip on Windows
+        if os.name != "nt":  # Skip on Windows
             os.chmod(tex_path, 0o000)
 
             is_valid, error, found_tokens = scan_tex_for_placeholders(str(tex_path))

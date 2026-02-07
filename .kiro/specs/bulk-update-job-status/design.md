@@ -195,25 +195,25 @@ ALLOWED_STATUSES = {"new", "shortlist", "reviewed", "reject", "resume_written", 
 class JobsWriter:
     def __init__(self, db_path: str):
         """Initialize writer with database path"""
-    
+
     def __enter__(self):
         """Open connection and begin transaction"""
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Rollback on exception, close connection"""
-    
+
     def validate_jobs_exist(self, job_ids: list[int]) -> list[int]:
         """Returns list of missing job IDs (empty if all exist)"""
 
     def ensure_updated_at_column(self) -> None:
         """Raises schema error if jobs.updated_at column is missing"""
-    
+
     def update_job_status(self, job_id: int, status: str, timestamp: str) -> None:
         """Execute UPDATE for single job. Raises on DB error."""
-    
+
     def commit(self) -> None:
         """Commit transaction"""
-    
+
     def rollback(self) -> None:
         """Rollback transaction"""
 ```
@@ -327,10 +327,10 @@ with JobsWriter(db_path) as writer:
     timestamp = get_current_utc_timestamp()
     for update in updates:
         writer.update_job_status(update["id"], update["status"], timestamp)
-    
+
     # Commit if all succeed
     writer.commit()
-    
+
 # Rollback automatically on exception via __exit__
 ```
 
@@ -492,12 +492,12 @@ async def bulk_update_job_status(args: dict) -> dict:
                     update["status"],
                     timestamp
                 )
-            
+
             # Commit transaction
             writer.commit()
-            
+
             return build_success_response(updates)
-    
+
     except RequestValidationError as e:
         return build_validation_error(e)
     except DatabaseError as e:

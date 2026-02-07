@@ -326,17 +326,17 @@ class TestWriteCaptureFile:
 class TestCaptureWriteFailureHandling:
     """
     Test failure handling for capture write operations.
-    
+
     Requirements: 9.4, 11.5
     """
 
     def test_write_to_readonly_directory_raises_error(self, tmp_path):
         """
         Test that write failure raises OSError without crashing.
-        
+
         This verifies that capture write failures can be caught and handled
         by the calling code without crashing the entire run.
-        
+
         **Validates: Requirements 9.4, 11.5**
         """
         import os
@@ -345,7 +345,7 @@ class TestCaptureWriteFailureHandling:
         # Create a read-only directory
         capture_dir = tmp_path / "readonly_capture"
         capture_dir.mkdir(parents=True)
-        
+
         # Make directory read-only (remove write permissions)
         os.chmod(capture_dir, stat.S_IRUSR | stat.S_IXUSR)
 
@@ -369,10 +369,10 @@ class TestCaptureWriteFailureHandling:
     def test_write_with_invalid_json_data_raises_error(self, tmp_path):
         """
         Test that invalid JSON data raises TypeError without crashing.
-        
+
         This ensures that data validation errors are properly propagated
         and can be handled by the calling code.
-        
+
         **Validates: Requirements 9.4, 11.5**
         """
         capture_dir = str(tmp_path / "capture")
@@ -397,10 +397,10 @@ class TestCaptureWriteFailureHandling:
     def test_error_propagation_allows_graceful_handling(self, tmp_path):
         """
         Test that errors can be caught and handled gracefully by calling code.
-        
+
         This demonstrates the pattern where capture write failures don't crash
         the whole run - they can be caught, logged, and the run can continue.
-        
+
         **Validates: Requirements 9.4, 11.5**
         """
         import os
@@ -440,10 +440,10 @@ class TestCaptureWriteFailureHandling:
     def test_partial_success_pattern(self, tmp_path):
         """
         Test pattern where some terms succeed and some fail in capture writing.
-        
+
         This demonstrates how the tool can continue processing other terms
         even if one term's capture write fails.
-        
+
         **Validates: Requirements 9.4, 11.5**
         """
         import os
@@ -452,7 +452,7 @@ class TestCaptureWriteFailureHandling:
         # Create two capture directories - one writable, one read-only
         writable_dir = tmp_path / "writable"
         readonly_dir = tmp_path / "readonly"
-        
+
         writable_dir.mkdir(parents=True)
         readonly_dir.mkdir(parents=True)
         os.chmod(readonly_dir, stat.S_IRUSR | stat.S_IXUSR)

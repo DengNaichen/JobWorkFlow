@@ -47,8 +47,7 @@ def build_next_cursor(last_row: Optional[Dict[str, Any]]) -> Optional[str]:
 
 
 def paginate_results(
-    rows: List[Dict[str, Any]],
-    limit: int
+    rows: List[Dict[str, Any]], limit: int
 ) -> Tuple[List[Dict[str, Any]], bool, Optional[str]]:
     """
     Apply pagination logic to query results.

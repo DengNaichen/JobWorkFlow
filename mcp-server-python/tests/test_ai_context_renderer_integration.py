@@ -69,7 +69,7 @@ and distributed systems. Expert in Python, TypeScript, and cloud infrastructure.
   - GPA: 3.8/4.0
   - Dean's List: 2014, 2015, 2016
 """
-    full_resume_path.write_text(full_resume_content, encoding='utf-8')
+    full_resume_path.write_text(full_resume_content, encoding="utf-8")
     return str(full_resume_path)
 
 
@@ -78,7 +78,7 @@ def temp_tracker(temp_workspace):
     """Create a temporary tracker file for testing."""
     tracker_path = Path(temp_workspace) / "trackers" / "2026-02-07-amazon-4000.md"
     tracker_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     tracker_content = """---
 status: Shortlisted
 company: Amazon
@@ -119,17 +119,17 @@ highly scalable distributed systems that power AWS services used by millions of 
 - Remote-friendly with occasional office visits
 - Strong benefits package
 """
-    tracker_path.write_text(tracker_content, encoding='utf-8')
+    tracker_path.write_text(tracker_content, encoding="utf-8")
     return str(tracker_path)
 
 
 class TestAiContextRendererIntegration:
     """Integration tests for ai_context_renderer with tracker_parser."""
-    
+
     def test_end_to_end_tracker_to_ai_context(self, temp_tracker, temp_full_resume, temp_workspace):
         """
         Test complete workflow: parse tracker -> regenerate ai_context.
-        
+
         This test verifies that:
         1. Tracker is parsed correctly
         2. Workspace directories are created
@@ -138,86 +138,92 @@ class TestAiContextRendererIntegration:
         """
         # Parse tracker
         tracker_data = parse_tracker_for_career_tailor(temp_tracker)
-        
+
         # Verify tracker data
         assert tracker_data["company"] == "Amazon"
         assert tracker_data["position"] == "Senior Software Engineer"
         assert tracker_data["job_db_id"] == 4000
         assert "distributed systems" in tracker_data["job_description"]
-        
+
         # Create workspace
         workspace_dir = Path(temp_workspace) / "applications" / "amazon-4000"
-        ensure_workspace_directories("amazon-4000", base_dir=str(Path(temp_workspace) / "applications"))
-        
+        ensure_workspace_directories(
+            "amazon-4000", base_dir=str(Path(temp_workspace) / "applications")
+        )
+
         # Regenerate ai_context
         ai_context_path = regenerate_ai_context(
             tracker_data=tracker_data,
             workspace_dir=str(workspace_dir),
-            full_resume_path=temp_full_resume
+            full_resume_path=temp_full_resume,
         )
-        
+
         # Verify ai_context.md was created
         assert Path(ai_context_path).exists()
-        
+
         # Read and verify content
-        content = Path(ai_context_path).read_text(encoding='utf-8')
-        
+        content = Path(ai_context_path).read_text(encoding="utf-8")
+
         # Verify structure
         assert "# AI Context" in content
         assert "## Full Resume Source (raw)" in content
         assert "## Job Description" in content
         assert "## Notes" in content
         assert "## Instructions" in content
-        
+
         # Verify full resume content is included
         assert "Jane Smith" in content
         assert "Tech Innovations Inc." in content
         assert "University of Toronto" in content
-        
+
         # Verify job description is included
         assert "Amazon is seeking a Senior Software Engineer" in content
         assert "distributed systems" in content
         assert "5+ years of software development experience" in content
-        
+
         # Verify metadata
         assert "Company: Amazon" in content
         assert "Position: Senior Software Engineer" in content
         assert "career_tailor MCP Tool" in content
-    
-    def test_regenerate_overwrites_existing_ai_context(self, temp_tracker, temp_full_resume, temp_workspace):
+
+    def test_regenerate_overwrites_existing_ai_context(
+        self, temp_tracker, temp_full_resume, temp_workspace
+    ):
         """
         Test that regenerating ai_context overwrites existing file.
-        
+
         This verifies Requirement 4.5: Regenerate on each successful item run.
         """
         # Parse tracker
         tracker_data = parse_tracker_for_career_tailor(temp_tracker)
-        
+
         # Create workspace
         workspace_dir = Path(temp_workspace) / "applications" / "amazon-4000"
-        ensure_workspace_directories("amazon-4000", base_dir=str(Path(temp_workspace) / "applications"))
-        
+        ensure_workspace_directories(
+            "amazon-4000", base_dir=str(Path(temp_workspace) / "applications")
+        )
+
         # Create existing ai_context.md with old content
         ai_context_path = workspace_dir / "resume" / "ai_context.md"
-        ai_context_path.write_text("OLD CONTENT - SHOULD BE REPLACED", encoding='utf-8')
-        
+        ai_context_path.write_text("OLD CONTENT - SHOULD BE REPLACED", encoding="utf-8")
+
         # Regenerate ai_context
         result_path = regenerate_ai_context(
             tracker_data=tracker_data,
             workspace_dir=str(workspace_dir),
-            full_resume_path=temp_full_resume
+            full_resume_path=temp_full_resume,
         )
-        
+
         # Verify file was overwritten
-        content = Path(result_path).read_text(encoding='utf-8')
+        content = Path(result_path).read_text(encoding="utf-8")
         assert "OLD CONTENT" not in content
         assert "Jane Smith" in content
         assert "Amazon" in content
-    
+
     def test_multiple_trackers_different_workspaces(self, temp_full_resume, temp_workspace):
         """
         Test generating ai_context for multiple trackers in different workspaces.
-        
+
         This simulates batch processing of multiple job applications.
         """
         # Create two tracker files
@@ -233,8 +239,8 @@ job_db_id: 4000
 ## Job Description
 Build distributed systems at Amazon scale.
 """
-        tracker1_path.write_text(tracker1_content, encoding='utf-8')
-        
+        tracker1_path.write_text(tracker1_content, encoding="utf-8")
+
         tracker2_path = Path(temp_workspace) / "trackers" / "meta.md"
         tracker2_content = """---
 status: Shortlisted
@@ -246,46 +252,50 @@ job_db_id: 4001
 ## Job Description
 Develop AI systems for social media applications.
 """
-        tracker2_path.write_text(tracker2_content, encoding='utf-8')
-        
+        tracker2_path.write_text(tracker2_content, encoding="utf-8")
+
         # Process first tracker
         tracker1_data = parse_tracker_for_career_tailor(str(tracker1_path))
         workspace1_dir = Path(temp_workspace) / "applications" / "amazon-4000"
-        ensure_workspace_directories("amazon-4000", base_dir=str(Path(temp_workspace) / "applications"))
-        
+        ensure_workspace_directories(
+            "amazon-4000", base_dir=str(Path(temp_workspace) / "applications")
+        )
+
         ai_context1_path = regenerate_ai_context(
             tracker_data=tracker1_data,
             workspace_dir=str(workspace1_dir),
-            full_resume_path=temp_full_resume
+            full_resume_path=temp_full_resume,
         )
-        
+
         # Process second tracker
         tracker2_data = parse_tracker_for_career_tailor(str(tracker2_path))
         workspace2_dir = Path(temp_workspace) / "applications" / "meta-4001"
-        ensure_workspace_directories("meta-4001", base_dir=str(Path(temp_workspace) / "applications"))
-        
+        ensure_workspace_directories(
+            "meta-4001", base_dir=str(Path(temp_workspace) / "applications")
+        )
+
         ai_context2_path = regenerate_ai_context(
             tracker_data=tracker2_data,
             workspace_dir=str(workspace2_dir),
-            full_resume_path=temp_full_resume
+            full_resume_path=temp_full_resume,
         )
-        
+
         # Verify both files exist
         assert Path(ai_context1_path).exists()
         assert Path(ai_context2_path).exists()
-        
+
         # Verify content is different
-        content1 = Path(ai_context1_path).read_text(encoding='utf-8')
-        content2 = Path(ai_context2_path).read_text(encoding='utf-8')
-        
+        content1 = Path(ai_context1_path).read_text(encoding="utf-8")
+        content2 = Path(ai_context2_path).read_text(encoding="utf-8")
+
         assert "Amazon" in content1
         assert "distributed systems" in content1
         assert "Meta" not in content1
-        
+
         assert "Meta" in content2
         assert "AI systems" in content2
         assert "Amazon" not in content2
-    
+
     def test_ai_context_with_complex_job_description(self, temp_full_resume, temp_workspace):
         """
         Test ai_context generation with complex job description containing special formatting.
@@ -293,7 +303,7 @@ Develop AI systems for social media applications.
         # Create tracker with complex job description
         tracker_path = Path(temp_workspace) / "trackers" / "complex.md"
         tracker_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         tracker_content = """---
 status: Shortlisted
 company: Tech Corp
@@ -330,21 +340,23 @@ We're looking for a Staff Engineer to lead our platform team.
 ## Notes
 Great opportunity!
 """
-        tracker_path.write_text(tracker_content, encoding='utf-8')
-        
+        tracker_path.write_text(tracker_content, encoding="utf-8")
+
         # Parse and generate ai_context
         tracker_data = parse_tracker_for_career_tailor(str(tracker_path))
         workspace_dir = Path(temp_workspace) / "applications" / "techcorp-5000"
-        ensure_workspace_directories("techcorp-5000", base_dir=str(Path(temp_workspace) / "applications"))
-        
+        ensure_workspace_directories(
+            "techcorp-5000", base_dir=str(Path(temp_workspace) / "applications")
+        )
+
         ai_context_path = regenerate_ai_context(
             tracker_data=tracker_data,
             workspace_dir=str(workspace_dir),
-            full_resume_path=temp_full_resume
+            full_resume_path=temp_full_resume,
         )
-        
+
         # Verify complex formatting is preserved
-        content = Path(ai_context_path).read_text(encoding='utf-8')
+        content = Path(ai_context_path).read_text(encoding="utf-8")
         assert "**About the Role:**" in content
         assert "**Key Responsibilities:**" in content
         assert "1. 8+ years experience" in content
@@ -355,13 +367,13 @@ Great opportunity!
 
 class TestErrorHandling:
     """Test error handling in integration scenarios."""
-    
+
     def test_missing_job_description_section(self, temp_full_resume, temp_workspace):
         """Test error when tracker is missing ## Job Description section."""
         # Create tracker without job description
         tracker_path = Path(temp_workspace) / "trackers" / "no-jd.md"
         tracker_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         tracker_content = """---
 status: Shortlisted
 company: Amazon
@@ -371,19 +383,20 @@ position: Software Engineer
 ## Notes
 Some notes here but no job description.
 """
-        tracker_path.write_text(tracker_content, encoding='utf-8')
-        
+        tracker_path.write_text(tracker_content, encoding="utf-8")
+
         # Should raise TrackerParseError
         from utils.tracker_parser import TrackerParseError
+
         with pytest.raises(TrackerParseError, match="Job Description"):
             parse_tracker_for_career_tailor(str(tracker_path))
-    
+
     def test_missing_required_frontmatter_fields(self, temp_full_resume, temp_workspace):
         """Test error when tracker is missing required frontmatter fields."""
         # Create tracker without company field
         tracker_path = Path(temp_workspace) / "trackers" / "no-company.md"
         tracker_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         tracker_content = """---
 status: Shortlisted
 position: Software Engineer
@@ -392,9 +405,10 @@ position: Software Engineer
 ## Job Description
 Build systems.
 """
-        tracker_path.write_text(tracker_content, encoding='utf-8')
-        
+        tracker_path.write_text(tracker_content, encoding="utf-8")
+
         # Should raise TrackerParseError
         from utils.tracker_parser import TrackerParseError
+
         with pytest.raises(TrackerParseError, match="company"):
             parse_tracker_for_career_tailor(str(tracker_path))

@@ -10,7 +10,7 @@ from utils.tracker_policy import (
     check_transition_or_raise,
     TransitionResult,
     TERMINAL_STATUSES,
-    CORE_TRANSITIONS
+    CORE_TRANSITIONS,
 )
 from models.errors import ToolError, ErrorCode
 
@@ -36,10 +36,7 @@ class TestTransitionResult:
 
     def test_blocked_transition_result(self):
         """Test creating a blocked transition result with error message."""
-        result = TransitionResult(
-            allowed=False,
-            error_message="Transition not allowed"
-        )
+        result = TransitionResult(allowed=False, error_message="Transition not allowed")
         assert result.allowed is False
         assert result.is_noop is False
         assert result.error_message == "Transition not allowed"
@@ -48,11 +45,7 @@ class TestTransitionResult:
     def test_transition_result_with_warnings(self):
         """Test creating a transition result with warnings."""
         warnings = ["Force bypass applied"]
-        result = TransitionResult(
-            allowed=True,
-            is_noop=False,
-            warnings=warnings
-        )
+        result = TransitionResult(allowed=True, is_noop=False, warnings=warnings)
         assert result.allowed is True
         assert result.warnings == warnings
 
@@ -67,20 +60,14 @@ class TestTransitionResult:
 
     def test_to_dict_with_error(self):
         """Test converting blocked result to dictionary."""
-        result = TransitionResult(
-            allowed=False,
-            error_message="Not allowed"
-        )
+        result = TransitionResult(allowed=False, error_message="Not allowed")
         data = result.to_dict()
         assert data["allowed"] is False
         assert data["error_message"] == "Not allowed"
 
     def test_to_dict_with_warnings(self):
         """Test converting result with warnings to dictionary."""
-        result = TransitionResult(
-            allowed=True,
-            warnings=["Warning message"]
-        )
+        result = TransitionResult(allowed=True, warnings=["Warning message"])
         data = result.to_dict()
         assert data["warnings"] == ["Warning message"]
 
@@ -443,7 +430,7 @@ class TestEdgeCases:
             ("Applied", "Reviewed"),
             ("Resume Written", "Reviewed"),
             ("Reviewed", "Applied"),
-            ("Interview", "Applied")
+            ("Interview", "Applied"),
         ]
 
         for current, target in violations:
@@ -454,8 +441,13 @@ class TestEdgeCases:
     def test_all_statuses_can_reach_terminal(self):
         """Test that all statuses can transition to terminal outcomes."""
         all_statuses = [
-            "Reviewed", "Resume Written", "Applied",
-            "Interview", "Offer", "Rejected", "Ghosted"
+            "Reviewed",
+            "Resume Written",
+            "Applied",
+            "Interview",
+            "Offer",
+            "Rejected",
+            "Ghosted",
         ]
 
         for status in all_statuses:

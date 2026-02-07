@@ -51,14 +51,12 @@ def atomic_write(file_path: Union[str, Path], content: str) -> None:
     try:
         # Create temporary file in target directory
         temp_fd, temp_path = tempfile.mkstemp(
-            dir=file_path.parent,
-            prefix=f".{file_path.name}.",
-            suffix=".tmp"
+            dir=file_path.parent, prefix=f".{file_path.name}.", suffix=".tmp"
         )
 
         # Write content to temporary file
         # Use os.write for the file descriptor
-        content_bytes = content.encode('utf-8')
+        content_bytes = content.encode("utf-8")
         os.write(temp_fd, content_bytes)
 
         # Sync to disk to ensure durability
@@ -108,7 +106,9 @@ def ensure_directory(dir_path: Union[str, Path]) -> None:
     Path(dir_path).mkdir(parents=True, exist_ok=True)
 
 
-def ensure_workspace_directories(application_slug: str, base_dir: str = "data/applications") -> None:
+def ensure_workspace_directories(
+    application_slug: str, base_dir: str = "data/applications"
+) -> None:
     """
     Create workspace directories for a job application.
 
@@ -194,7 +194,7 @@ def resolve_write_action(file_exists: bool, force: bool) -> str:
 def materialize_resume_tex(
     template_path: str = "data/templates/resume_skeleton_example.tex",
     target_path: Union[str, Path] = None,
-    force: bool = False
+    force: bool = False,
 ) -> str:
     """
     Materialize resume.tex from template with force behavior.
@@ -263,7 +263,7 @@ def materialize_resume_tex(
         return "preserved"
 
     # Read template content
-    template_content = template_path.read_text(encoding='utf-8')
+    template_content = template_path.read_text(encoding="utf-8")
 
     # Write to target using atomic write
     atomic_write(target_path, template_content)

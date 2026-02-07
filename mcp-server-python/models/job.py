@@ -11,13 +11,13 @@ from typing import Dict, Any, Optional
 def to_job_schema(row: Dict[str, Any]) -> Dict[str, Any]:
     """
     Map a database row to the fixed job output schema.
-    
+
     This function ensures:
     - Only fixed schema fields are included in output
     - Missing values are handled consistently (as None)
     - All values are JSON-serializable
     - Schema stability across all responses
-    
+
     Fixed schema fields:
     - id: integer
     - job_id: string
@@ -29,13 +29,13 @@ def to_job_schema(row: Dict[str, Any]) -> Dict[str, Any]:
     - source: string
     - status: string
     - captured_at: string (ISO 8601 timestamp)
-    
+
     Args:
         row: Database row as dictionary
-        
+
     Returns:
         Dictionary with fixed schema fields, JSON-serializable
-        
+
     Requirements:
         - 3.1: Include all fixed fields
         - 3.2: Do not include arbitrary additional columns
@@ -62,12 +62,12 @@ def to_job_schema(row: Dict[str, Any]) -> Dict[str, Any]:
 def _get_field(row: Dict[str, Any], field: str, default: Optional[Any] = None) -> Any:
     """
     Safely extract a field from a row with consistent default handling.
-    
+
     Args:
         row: Database row dictionary
         field: Field name to extract
         default: Default value if field is missing or None
-        
+
     Returns:
         Field value or default
     """

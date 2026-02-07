@@ -16,10 +16,7 @@ from models.errors import create_validation_error
 TERMINAL_STATUSES = {"Rejected", "Ghosted"}
 
 # Core forward transitions: current_status -> allowed_next_status
-CORE_TRANSITIONS = {
-    "Reviewed": "Resume Written",
-    "Resume Written": "Applied"
-}
+CORE_TRANSITIONS = {"Reviewed": "Resume Written", "Resume Written": "Applied"}
 
 
 class TransitionResult:
@@ -30,7 +27,7 @@ class TransitionResult:
         allowed: bool,
         is_noop: bool = False,
         error_message: Optional[str] = None,
-        warnings: Optional[List[str]] = None
+        warnings: Optional[List[str]] = None,
     ):
         """
         Initialize a transition result.
@@ -48,10 +45,7 @@ class TransitionResult:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert result to dictionary format."""
-        result = {
-            "allowed": self.allowed,
-            "is_noop": self.is_noop
-        }
+        result = {"allowed": self.allowed, "is_noop": self.is_noop}
         if self.error_message:
             result["error_message"] = self.error_message
         if self.warnings:
@@ -60,9 +54,7 @@ class TransitionResult:
 
 
 def validate_transition(
-    current_status: str,
-    target_status: str,
-    force: bool = False
+    current_status: str, target_status: str, force: bool = False
 ) -> TransitionResult:
     """
     Validate a tracker status transition according to policy rules.
@@ -167,9 +159,7 @@ def validate_transition(
 
 
 def check_transition_or_raise(
-    current_status: str,
-    target_status: str,
-    force: bool = False
+    current_status: str, target_status: str, force: bool = False
 ) -> TransitionResult:
     """
     Validate transition and raise ToolError if blocked.

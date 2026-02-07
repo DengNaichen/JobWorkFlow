@@ -19,14 +19,14 @@ This plan implements a read-only MCP tool for retrieving jobs with `status='new'
     - Include `code`, `message`, and `retryable` fields in error schema
     - Implement error sanitization to remove sensitive details (paths, SQL, stack traces)
     - _Requirements: 5.1, 5.2, 5.3, 5.5_
-  
+
   - [x] 2.2 Implement input validation functions
     - Create validation for `limit` parameter (1-1000 range, default 50)
     - Create validation for `db_path` parameter (string type check)
     - Create validation for `cursor` parameter (format validation)
     - Return structured `VALIDATION_ERROR` for invalid inputs
     - _Requirements: 1.3, 1.4, 6.3_
-  
+
   - [x]* 2.3 Write unit tests for validation
     - Test `limit` validation: default, valid range, below 1, above 1000
     - Test `db_path` validation: valid paths, invalid types
@@ -41,12 +41,12 @@ This plan implements a read-only MCP tool for retrieving jobs with `status='new'
     - Use base64 encoding for cursor opacity
     - Handle malformed cursor strings with `VALIDATION_ERROR`
     - _Requirements: 1.5, 2.4, 6.3_
-  
+
   - [x]* 3.2 Write property test for cursor round-trip
     - **Property 1: Cursor round-trip consistency**
     - **Validates: Requirements 1.5**
     - For any valid `(captured_at, id)` pair, `decode_cursor(encode_cursor(captured_at, id))` should return the original values
-  
+
   - [ ]* 3.3 Write unit tests for cursor edge cases
     - Test cursor with null/empty values
     - Test cursor with special characters in timestamp
@@ -62,7 +62,7 @@ This plan implements a read-only MCP tool for retrieving jobs with `status='new'
     - Return `DB_ERROR` for connection failures
     - Ensure connections are always closed via context management
     - _Requirements: 2.1, 2.2, 2.5, 2.6, 4.5_
-  
+
   - [x] 4.2 Implement deterministic query function
     - Create `query_new_jobs(conn, limit, cursor)` function
     - Filter by `status='new'` using parameterized SQL
@@ -71,7 +71,7 @@ This plan implements a read-only MCP tool for retrieving jobs with `status='new'
     - Query `limit + 1` rows to compute `has_more` flag
     - Return list of row dictionaries with fixed schema fields
     - _Requirements: 2.2, 2.3, 2.4
-  
+
   - [ ]* 4.3 Write unit tests for database reader
     - Test connection with valid database path
     - Test connection with non-existent database (expect `DB_NOT_FOUND`)
@@ -79,7 +79,7 @@ This plan implements a read-only MCP tool for retrieving jobs with `status='new'
     - Test query returns only `status='new'` jobs
     - Test deterministic ordering (repeated queries return same order)
     - _Requirements: 2.1, 2.3, 2.4, 2.5, 2.6_
-  
+
   - [ ]* 4.4 Write property test for read-only guarantee
     - **Property 2: Read-only operations**
     - **Validates: Requirements 4.1, 4.2, 4.3, 4.4**
@@ -98,12 +98,12 @@ This plan implements a read-only MCP tool for retrieving jobs with `status='new'
     - Implement `paginate_results(rows, limit)` returning `(page, has_more, next_cursor)`
     - Handle edge case when result set is empty
     - _Requirements: 1.5, 2.4, 6.4
-  
+
   - [ ]* 6.2 Write property test for pagination determinism
     - **Property 3: Pagination determinism**
     - **Validates: Requirements 1.5, 2.4**
     - For any database state, paginating through all results should produce deterministic, non-overlapping pages that union to the complete result set
-  
+
   - [ ]* 6.3 Write unit tests for pagination edge cases
     - Test pagination with exactly `limit` results (no more pages)
     - Test pagination with `limit + 1` results (one more page)
@@ -119,7 +119,7 @@ This plan implements a read-only MCP tool for retrieving jobs with `status='new'
     - Ensure all fields are JSON-serializable
     - Do not include arbitrary additional database columns
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
-  
+
   - [ ]* 7.2 Write unit tests for schema mapping
     - Test complete row mapping with all fields present
     - Test row mapping with missing/null fields
@@ -137,7 +137,7 @@ This plan implements a read-only MCP tool for retrieving jobs with `status='new'
     - Build response with `jobs`, `count`, `has_more`, `next_cursor` fields
     - Wrap all errors in structured error format
     - _Requirements: 1.1, 1.2, 6.1, 6.2, 6.3, 6.4, 6.5_
-  
+
   - [ ]* 8.2 Write integration tests for tool handler
     - Test tool with default parameters (limit=50, no cursor)
     - Test tool with custom limit
@@ -155,7 +155,7 @@ This plan implements a read-only MCP tool for retrieving jobs with `status='new'
     - Define tool output schema matching design specification
     - Wire tool handler to MCP server invocation
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
-  
+
   - [x] 9.2 Add tool metadata and documentation
     - Set tool name: `bulk_read_new_jobs`
     - Set tool description for LLM agents
@@ -176,17 +176,17 @@ This plan implements a read-only MCP tool for retrieving jobs with `status='new'
     - **Property 4: Batch size validation**
     - **Validates: Requirements 1.3, 1.4**
     - For any limit value outside [1, 1000], the tool should return `VALIDATION_ERROR`
-  
+
   - [ ]* 11.2 Write property test for result count accuracy
     - **Property 5: Result count accuracy**
     - **Validates: Requirements 6.5**
     - For any query result, `count` field should equal `len(jobs)` array
-  
+
   - [ ]* 11.3 Write property test for schema stability
     - **Property 6: Schema stability**
     - **Validates: Requirements 3.1, 3.2, 3.5**
     - For any job record returned, it should contain exactly the fixed schema fields and no additional fields
-  
+
   - [ ]* 11.4 Write property test for JSON serializability
     - **Property 7: JSON serializability**
     - **Validates: Requirements 3.4**

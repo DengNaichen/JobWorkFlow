@@ -11,7 +11,7 @@ from utils.file_ops import (
     ensure_directory,
     ensure_workspace_directories,
     resolve_write_action,
-    materialize_resume_tex
+    materialize_resume_tex,
 )
 
 
@@ -62,7 +62,7 @@ class TestAtomicWrite:
         target = tmp_path / "test.md"
 
         # Mock os.write to fail
-        with patch('os.write', side_effect=OSError("Write failed")):
+        with patch("os.write", side_effect=OSError("Write failed")):
             with pytest.raises(OSError, match="Write failed"):
                 atomic_write(target, "content")
 
@@ -78,7 +78,7 @@ class TestAtomicWrite:
         target = tmp_path / "test.md"
 
         # Mock os.fsync to fail
-        with patch('os.fsync', side_effect=OSError("Fsync failed")):
+        with patch("os.fsync", side_effect=OSError("Fsync failed")):
             with pytest.raises(OSError, match="Fsync failed"):
                 atomic_write(target, "content")
 
@@ -94,7 +94,7 @@ class TestAtomicWrite:
         target = tmp_path / "test.md"
 
         # Mock os.replace to fail
-        with patch('os.replace', side_effect=OSError("Rename failed")):
+        with patch("os.replace", side_effect=OSError("Rename failed")):
             with pytest.raises(OSError, match="Rename failed"):
                 atomic_write(target, "content")
 
@@ -323,7 +323,6 @@ class TestEnsureWorkspaceDirectories:
         assert (base_dir / "meta-3" / "cv").exists()
 
 
-
 class TestResolveWriteAction:
     """Test resolve_write_action function for idempotent action resolution."""
 
@@ -364,7 +363,6 @@ class TestResolveWriteAction:
                 f"force={force}, but got {action}"
             )
 
-
     def test_requirements_validation(self):
         """
         Validate implementation against requirements 4.1, 4.2, 4.4, 5.4.
@@ -386,9 +384,9 @@ class TestResolveWriteAction:
         # Requirement 4.4 & 5.4: Explicit action reasons for all cases
         all_actions = [
             resolve_write_action(False, False),  # created
-            resolve_write_action(False, True),   # created
-            resolve_write_action(True, False),   # skipped_exists
-            resolve_write_action(True, True),    # overwritten
+            resolve_write_action(False, True),  # created
+            resolve_write_action(True, False),  # skipped_exists
+            resolve_write_action(True, True),  # overwritten
         ]
 
         # Verify all actions are explicit and valid
@@ -419,9 +417,7 @@ class TestMaterializeResumeTex:
 
         # Materialize resume.tex
         action = materialize_resume_tex(
-            template_path=str(template_path),
-            target_path=str(target_path),
-            force=False
+            template_path=str(template_path), target_path=str(target_path), force=False
         )
 
         # Verify action and file creation
@@ -439,14 +435,14 @@ class TestMaterializeResumeTex:
         # Create existing resume.tex with different content
         target_path = tmp_path / "resume" / "resume.tex"
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        existing_content = r"\documentclass{article}\begin{document}Existing Custom Content\end{document}"
+        existing_content = (
+            r"\documentclass{article}\begin{document}Existing Custom Content\end{document}"
+        )
         target_path.write_text(existing_content)
 
         # Materialize resume.tex without force
         action = materialize_resume_tex(
-            template_path=str(template_path),
-            target_path=str(target_path),
-            force=False
+            template_path=str(template_path), target_path=str(target_path), force=False
         )
 
         # Verify action and content preservation
@@ -469,9 +465,7 @@ class TestMaterializeResumeTex:
 
         # Materialize resume.tex with force=True
         action = materialize_resume_tex(
-            template_path=str(template_path),
-            target_path=str(target_path),
-            force=True
+            template_path=str(template_path), target_path=str(target_path), force=True
         )
 
         # Verify action and content overwrite
@@ -486,9 +480,7 @@ class TestMaterializeResumeTex:
 
         with pytest.raises(FileNotFoundError, match="Template file not found"):
             materialize_resume_tex(
-                template_path=str(template_path),
-                target_path=str(target_path),
-                force=False
+                template_path=str(template_path), target_path=str(target_path), force=False
             )
 
     def test_creates_parent_directories_atomically(self, tmp_path):
@@ -503,9 +495,7 @@ class TestMaterializeResumeTex:
 
         # Materialize resume.tex
         action = materialize_resume_tex(
-            template_path=str(template_path),
-            target_path=str(target_path),
-            force=False
+            template_path=str(template_path), target_path=str(target_path), force=False
         )
 
         # Verify directory creation and file
@@ -518,22 +508,22 @@ class TestMaterializeResumeTex:
         """Test that materialize_resume_tex handles unicode content in template."""
         # Create a template with unicode content
         template_path = tmp_path / "template.tex"
-        template_content = r"\documentclass{article}\begin{document}Résumé: 你好世界 🚀\end{document}"
-        template_path.write_text(template_content, encoding='utf-8')
+        template_content = (
+            r"\documentclass{article}\begin{document}Résumé: 你好世界 🚀\end{document}"
+        )
+        template_path.write_text(template_content, encoding="utf-8")
 
         # Target path
         target_path = tmp_path / "resume" / "resume.tex"
 
         # Materialize resume.tex
         action = materialize_resume_tex(
-            template_path=str(template_path),
-            target_path=str(target_path),
-            force=False
+            template_path=str(template_path), target_path=str(target_path), force=False
         )
 
         # Verify unicode handling
         assert action == "created"
-        assert target_path.read_text(encoding='utf-8') == template_content
+        assert target_path.read_text(encoding="utf-8") == template_content
 
     def test_uses_default_template_path(self, tmp_path, monkeypatch):
         """Test that materialize_resume_tex uses default template path."""
@@ -548,10 +538,7 @@ class TestMaterializeResumeTex:
         target_path = tmp_path / "resume" / "resume.tex"
 
         # Materialize resume.tex using default template
-        action = materialize_resume_tex(
-            target_path=str(target_path),
-            force=False
-        )
+        action = materialize_resume_tex(target_path=str(target_path), force=False)
 
         # Verify default template was used
         assert action == "created"
@@ -612,7 +599,9 @@ class TestMaterializeResumeTex:
         action_4_3 = materialize_resume_tex(str(template_path), str(target_4_3), force=False)
         assert action_4_3 == "created", "Requirement 4.3 failed: should create from template"
         assert target_4_3.exists(), "Requirement 4.3 failed: file should exist"
-        assert target_4_3.read_text() == template_content, "Requirement 4.3 failed: content mismatch"
+        assert target_4_3.read_text() == template_content, (
+            "Requirement 4.3 failed: content mismatch"
+        )
 
         # Requirement 4.4: When force=true, overwrite existing resume.tex
         target_4_4 = tmp_path / "req_4_4" / "resume.tex"
@@ -621,7 +610,9 @@ class TestMaterializeResumeTex:
         target_4_4.write_text(old_content)
         action_4_4 = materialize_resume_tex(str(template_path), str(target_4_4), force=True)
         assert action_4_4 == "overwritten", "Requirement 4.4 failed: should overwrite"
-        assert target_4_4.read_text() == template_content, "Requirement 4.4 failed: content not overwritten"
+        assert target_4_4.read_text() == template_content, (
+            "Requirement 4.4 failed: content not overwritten"
+        )
 
         # Requirement 4.6: Generated files SHALL be written atomically
         # This is implicitly tested by using atomic_write internally
@@ -629,7 +620,9 @@ class TestMaterializeResumeTex:
         target_4_6 = tmp_path / "req_4_6" / "resume.tex"
         action_4_6 = materialize_resume_tex(str(template_path), str(target_4_6), force=False)
         assert action_4_6 == "created", "Requirement 4.6 failed: atomic write failed"
-        assert target_4_6.read_text() == template_content, "Requirement 4.6 failed: atomic write incomplete"
+        assert target_4_6.read_text() == template_content, (
+            "Requirement 4.6 failed: atomic write incomplete"
+        )
 
     def test_accepts_path_objects(self, tmp_path):
         """Test that materialize_resume_tex accepts Path objects."""
@@ -644,8 +637,8 @@ class TestMaterializeResumeTex:
         # Materialize using Path objects
         action = materialize_resume_tex(
             template_path=template_path,  # Path object
-            target_path=target_path,      # Path object
-            force=False
+            target_path=target_path,  # Path object
+            force=False,
         )
 
         assert action == "created"
@@ -672,9 +665,7 @@ class TestMaterializeResumeTex:
 
         # Materialize resume.tex
         action = materialize_resume_tex(
-            template_path=str(template_path),
-            target_path=str(target_path),
-            force=False
+            template_path=str(template_path), target_path=str(target_path), force=False
         )
 
         # Verify

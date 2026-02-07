@@ -43,21 +43,21 @@ Out of scope:
 
 ### Components
 
-1. MCP Server (`server.py`)  
+1. MCP Server (`server.py`)
    registers `career_tailor`
-2. Tool Handler (`tools/career_tailor.py`)  
+2. Tool Handler (`tools/career_tailor.py`)
    orchestrates batch flow and response shaping
-3. Validation (`utils/validation.py`)  
+3. Validation (`utils/validation.py`)
    validates batch request and item schema
-4. Tracker Parsing (`utils/tracker_parser.py`)  
+4. Tracker Parsing (`utils/tracker_parser.py`)
    extracts frontmatter + `## Job Description`
-5. Workspace + Slug (`utils/workspace.py`, `utils/slug_resolver.py`)  
+5. Workspace + Slug (`utils/workspace.py`, `utils/slug_resolver.py`)
    deterministic paths and directory bootstrap
-6. Context Rendering (`utils/ai_context_renderer.py`)  
+6. Context Rendering (`utils/ai_context_renderer.py`)
    renders `ai_context.md`
-7. Guardrails + Compile (`utils/latex_guardrails.py`, `utils/latex_compiler.py`)  
+7. Guardrails + Compile (`utils/latex_guardrails.py`, `utils/latex_compiler.py`)
    placeholder scan and `pdflatex` execution
-8. Error Model (`models/errors.py`)  
+8. Error Model (`models/errors.py`)
    structured error taxonomy + sanitization
 
 ### Runtime Flow
@@ -255,4 +255,3 @@ def career_tailor(args: dict) -> dict:
 
     return aggregate_response(run_id, results, successful_items, warnings)
 ```
-

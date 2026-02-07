@@ -4,11 +4,7 @@ Unit tests for tracker markdown renderer.
 Tests stable frontmatter rendering, section structure, and content handling.
 """
 
-from utils.tracker_renderer import (
-    render_tracker_markdown,
-    _extract_date,
-    _render_job_description
-)
+from utils.tracker_renderer import render_tracker_markdown, _extract_date, _render_job_description
 
 
 class TestExtractDate:
@@ -57,26 +53,31 @@ class TestRenderTrackerMarkdown:
             "company": "Amazon",
             "description": "Build scalable systems",
             "url": "https://example.com/job/123",
-            "captured_at": "2026-02-04T15:30:00"
+            "captured_at": "2026-02-04T15:30:00",
         }
         plan = {
             "resume_path": "[[data/applications/amazon-3629/resume/resume.pdf]]",
             "cover_letter_path": "[[data/applications/amazon-3629/cover/cover-letter.pdf]]",
-            "application_slug": "amazon-3629"
+            "application_slug": "amazon-3629",
         }
 
         content = render_tracker_markdown(job, plan)
 
         # Check required frontmatter fields are present
         assert "job_db_id: 3629" in content
-        assert "job_id: '4368663835'" in content or "job_id: \"4368663835\"" in content
+        assert "job_id: '4368663835'" in content or 'job_id: "4368663835"' in content
         assert "company: Amazon" in content
         assert "position: Software Engineer" in content
         assert "status: Reviewed" in content
-        assert "application_date: '2026-02-04'" in content or "application_date: 2026-02-04" in content
+        assert (
+            "application_date: '2026-02-04'" in content or "application_date: 2026-02-04" in content
+        )
         assert "reference_link: https://example.com/job/123" in content
         assert "resume_path: '[[data/applications/amazon-3629/resume/resume.pdf]]'" in content
-        assert "cover_letter_path: '[[data/applications/amazon-3629/cover/cover-letter.pdf]]'" in content
+        assert (
+            "cover_letter_path: '[[data/applications/amazon-3629/cover/cover-letter.pdf]]'"
+            in content
+        )
 
     def test_render_sets_initial_status_to_reviewed(self):
         """Test that initial tracker status is set to 'Reviewed'."""
@@ -87,12 +88,12 @@ class TestRenderTrackerMarkdown:
             "company": "Amazon",
             "description": "Build scalable systems",
             "url": "https://example.com/job/123",
-            "captured_at": "2026-02-04T15:30:00"
+            "captured_at": "2026-02-04T15:30:00",
         }
         plan = {
             "resume_path": "[[data/applications/amazon-3629/resume/resume.pdf]]",
             "cover_letter_path": "[[data/applications/amazon-3629/cover/cover-letter.pdf]]",
-            "application_slug": "amazon-3629"
+            "application_slug": "amazon-3629",
         }
 
         content = render_tracker_markdown(job, plan)
@@ -108,12 +109,12 @@ class TestRenderTrackerMarkdown:
             "company": "Amazon",
             "description": "Build scalable systems",
             "url": "https://example.com/job/123",
-            "captured_at": "2026-02-04T15:30:00"
+            "captured_at": "2026-02-04T15:30:00",
         }
         plan = {
             "resume_path": "[[data/applications/amazon-3629/resume/resume.pdf]]",
             "cover_letter_path": "[[data/applications/amazon-3629/cover/cover-letter.pdf]]",
-            "application_slug": "amazon-3629"
+            "application_slug": "amazon-3629",
         }
 
         content = render_tracker_markdown(job, plan)
@@ -130,12 +131,12 @@ class TestRenderTrackerMarkdown:
             "company": "Amazon",
             "description": "Build scalable systems and work with great team.",
             "url": "https://example.com/job/123",
-            "captured_at": "2026-02-04T15:30:00"
+            "captured_at": "2026-02-04T15:30:00",
         }
         plan = {
             "resume_path": "[[data/applications/amazon-3629/resume/resume.pdf]]",
             "cover_letter_path": "[[data/applications/amazon-3629/cover/cover-letter.pdf]]",
-            "application_slug": "amazon-3629"
+            "application_slug": "amazon-3629",
         }
 
         content = render_tracker_markdown(job, plan)
@@ -151,12 +152,12 @@ class TestRenderTrackerMarkdown:
             "company": "Amazon",
             "description": None,
             "url": "https://example.com/job/123",
-            "captured_at": "2026-02-04T15:30:00"
+            "captured_at": "2026-02-04T15:30:00",
         }
         plan = {
             "resume_path": "[[data/applications/amazon-3629/resume/resume.pdf]]",
             "cover_letter_path": "[[data/applications/amazon-3629/cover/cover-letter.pdf]]",
-            "application_slug": "amazon-3629"
+            "application_slug": "amazon-3629",
         }
 
         content = render_tracker_markdown(job, plan)
@@ -172,18 +173,18 @@ class TestRenderTrackerMarkdown:
             "company": "Amazon",
             "description": "Build scalable systems",
             "url": "https://example.com/job/123",
-            "captured_at": "2026-02-04T15:30:00"
+            "captured_at": "2026-02-04T15:30:00",
         }
         plan = {
             "resume_path": "[[data/applications/amazon-3629/resume/resume.pdf]]",
             "cover_letter_path": "[[data/applications/amazon-3629/cover/cover-letter.pdf]]",
-            "application_slug": "amazon-3629"
+            "application_slug": "amazon-3629",
         }
 
         content = render_tracker_markdown(job, plan)
 
         # Should start with --- and have closing ---
-        lines = content.split('\n')
+        lines = content.split("\n")
         assert lines[0] == "---"
         assert "---" in lines[1:]  # Closing delimiter exists
 
@@ -196,12 +197,12 @@ class TestRenderTrackerMarkdown:
             "company": "Amazon",
             "description": "Build scalable systems",
             "url": "https://example.com/job/123",
-            "captured_at": "2026-02-04T15:30:00"
+            "captured_at": "2026-02-04T15:30:00",
         }
         plan = {
             "resume_path": "[[data/applications/amazon-3629/resume/resume.pdf]]",
             "cover_letter_path": "[[data/applications/amazon-3629/cover/cover-letter.pdf]]",
-            "application_slug": "amazon-3629"
+            "application_slug": "amazon-3629",
         }
 
         content = render_tracker_markdown(job, plan)
@@ -221,12 +222,12 @@ class TestRenderTrackerMarkdown:
             "company": "Amazon",
             "description": "Build scalable systems",
             "url": "https://example.com/job/123",
-            "captured_at": "2026-02-04T15:30:00"
+            "captured_at": "2026-02-04T15:30:00",
         }
         plan = {
             "resume_path": "[[data/applications/amazon-3629/resume/resume.pdf]]",
             "cover_letter_path": "[[data/applications/amazon-3629/cover/cover-letter.pdf]]",
-            "application_slug": "amazon-3629"
+            "application_slug": "amazon-3629",
         }
 
         content1 = render_tracker_markdown(job, plan)

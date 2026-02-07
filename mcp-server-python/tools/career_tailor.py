@@ -35,18 +35,18 @@ DEFAULT_PDFLATEX_CMD = "pdflatex"
 def generate_run_id(prefix: str = "tailor") -> str:
     """
     Generate a deterministic batch run identifier.
-    
+
     Format: <prefix>_YYYYMMDD_<8-char-hash>
-    
+
     The hash is based on the current timestamp with microsecond precision
     to ensure uniqueness across multiple calls in the same second.
-    
+
     Args:
         prefix: Prefix for the run ID (default: "tailor")
-    
+
     Returns:
         Run ID string in format: tailor_20260207_8f2f8f1c
-        
+
     Examples:
         >>> run_id = generate_run_id("tailor")
         >>> run_id.startswith("tailor_")
@@ -55,31 +55,31 @@ def generate_run_id(prefix: str = "tailor") -> str:
         8
     """
     now = datetime.now(timezone.utc)
-    
+
     # Date component: YYYYMMDD
     date_str = now.strftime("%Y%m%d")
-    
+
     # Hash component: first 8 chars of hash of full timestamp
     timestamp_str = now.isoformat()
-    hash_obj = hashlib.sha256(timestamp_str.encode('utf-8'))
+    hash_obj = hashlib.sha256(timestamp_str.encode("utf-8"))
     hash_str = hash_obj.hexdigest()[:8]
-    
+
     return f"{prefix}_{date_str}_{hash_str}"
 
 
 def sanitize_error_message(error: Exception) -> str:
     """
     Sanitize error message for safe reporting.
-    
+
     Removes stack traces, SQL fragments, and sensitive absolute paths
     while keeping actionable summary for retry.
-    
+
     Args:
         error: Exception to sanitize
-        
+
     Returns:
         Sanitized error message string
-        
+
     Requirements:
         - 8.6: Error messages are sanitized (no stack traces, no sensitive absolute paths, no secrets)
     """
@@ -90,10 +90,7 @@ def sanitize_error_message(error: Exception) -> str:
 
     # Redact SQL fragments.
     error_str = re.sub(
-        r"\b(SELECT|INSERT|UPDATE|DELETE)\b.*",
-        "[SQL query]",
-        error_str,
-        flags=re.IGNORECASE
+        r"\b(SELECT|INSERT|UPDATE|DELETE)\b.*", "[SQL query]", error_str, flags=re.IGNORECASE
     )
 
     # Redact absolute POSIX/Windows path tokens.
@@ -123,10 +120,18 @@ def resolve_job_db_id(item_job_db_id: Any, tracker_job_db_id: Any) -> Optional[i
 
     Returns None when no positive integer ID can be resolved.
     """
-    if isinstance(item_job_db_id, int) and not isinstance(item_job_db_id, bool) and item_job_db_id > 0:
+    if (
+        isinstance(item_job_db_id, int)
+        and not isinstance(item_job_db_id, bool)
+        and item_job_db_id > 0
+    ):
         return item_job_db_id
 
-    if isinstance(tracker_job_db_id, int) and not isinstance(tracker_job_db_id, bool) and tracker_job_db_id > 0:
+    if (
+        isinstance(tracker_job_db_id, int)
+        and not isinstance(tracker_job_db_id, bool)
+        and tracker_job_db_id > 0
+    ):
         return tracker_job_db_id
 
     if isinstance(tracker_job_db_id, str):
@@ -145,11 +150,11 @@ def process_item_tailoring(
     full_resume_path: str,
     resume_template_path: str,
     applications_dir: str,
-    pdflatex_cmd: str
+    pdflatex_cmd: str,
 ) -> Dict[str, Any]:
     """
     Process tailoring for a single item.
-    
+
     This function executes the full tailoring sequence:
     1. Parse tracker
     2. Resolve slug
@@ -158,7 +163,7 @@ def process_item_tailoring(
     5. Regenerate ai_context.md
     6. Compile PDF
     7. Verify PDF
-    
+
     Args:
         item: Batch item dictionary with tracker_path and optional job_db_id
         force: Whether to overwrite existing resume.tex
@@ -166,12 +171,12 @@ def process_item_tailoring(
         resume_template_path: Path to resume template file
         applications_dir: Base directory for applications
         pdflatex_cmd: Command to run pdflatex
-        
+
     Returns:
         Result dictionary with tracker_path, job_db_id, application_slug,
         workspace_dir, resume_tex_path, ai_context_path, resume_pdf_path,
         resume_tex_action, success, error_code, error
-        
+
     Requirements:
         - 2.2: When one item fails, record item failure and continue next item
         - 3.1: Load tracker markdown from tracker_path
@@ -197,58 +202,50 @@ def process_item_tailoring(
     """
     tracker_path = item["tracker_path"]
     item_job_db_id = item.get("job_db_id")
-    
+
     try:
         # Step 1: Parse tracker (Requirements 3.1-3.6)
         tracker_data = parse_tracker_for_career_tailor_with_error_mapping(tracker_path)
-        
+
         # Resolve job_db_id from item override first, then tracker metadata.
         resolved_job_db_id = resolve_job_db_id(item_job_db_id, tracker_data.get("job_db_id"))
 
         # Step 2: Resolve deterministic slug (Requirement 4.1)
         application_slug = resolve_application_slug(tracker_data, resolved_job_db_id)
-        
+
         # Step 3: Ensure workspace directories (Requirement 4.2)
         workspace_dir = f"{applications_dir}/{application_slug}"
         ensure_workspace_directories(application_slug, applications_dir)
-        
+
         # Step 4: Materialize resume.tex (Requirements 4.3, 4.4, 4.6)
         resume_tex_path = f"{workspace_dir}/resume/resume.tex"
         try:
             resume_tex_action = materialize_resume_tex(
-                template_path=resume_template_path,
-                target_path=resume_tex_path,
-                force=force
+                template_path=resume_template_path, target_path=resume_tex_path, force=force
             )
         except FileNotFoundError as e:
             # Template not found
             raise ToolError(
                 code=ErrorCode.TEMPLATE_NOT_FOUND,
-                message=f"Resume template not found: {resume_template_path}"
+                message=f"Resume template not found: {resume_template_path}",
             ) from e
-        
+
         # Step 5: Regenerate ai_context.md (Requirements 4.5, 4.6)
         ai_context_path = regenerate_ai_context(
             tracker_data=tracker_data,
             workspace_dir=workspace_dir,
-            full_resume_path=full_resume_path
+            full_resume_path=full_resume_path,
         )
-        
+
         # Step 6: Compile PDF (Requirements 5.1-5.5)
         resume_pdf_path = f"{workspace_dir}/resume/resume.pdf"
-        compile_resume_pdf(
-            tex_path=resume_tex_path,
-            pdflatex_cmd=pdflatex_cmd
-        )
-        
+        compile_resume_pdf(tex_path=resume_tex_path, pdflatex_cmd=pdflatex_cmd)
+
         # Step 7: Verify PDF exists and has non-zero size (Requirement 5.4)
         pdf_valid, pdf_error = verify_pdf_exists(resume_pdf_path)
         if not pdf_valid:
-            raise ToolError(
-                code=ErrorCode.COMPILE_ERROR,
-                message=pdf_error
-            )
-        
+            raise ToolError(code=ErrorCode.COMPILE_ERROR, message=pdf_error)
+
         # Success: return result with all paths
         result = {
             "tracker_path": tracker_path,
@@ -259,15 +256,15 @@ def process_item_tailoring(
             "resume_pdf_path": resume_pdf_path,
             "resume_tex_action": resume_tex_action,
             "action": "tailored",
-            "success": True
+            "success": True,
         }
-        
+
         # Include job_db_id if available
         if resolved_job_db_id is not None:
             result["job_db_id"] = resolved_job_db_id
-        
+
         return result
-        
+
     except ToolError as e:
         # ToolError already has proper error code - return failure result
         result = {
@@ -275,15 +272,15 @@ def process_item_tailoring(
             "action": "failed",
             "success": False,
             "error_code": e.code.value,
-            "error": sanitize_error_message(e)
+            "error": sanitize_error_message(e),
         }
-        
+
         # Include job_db_id if available
         if item_job_db_id is not None:
             result["job_db_id"] = item_job_db_id
-        
+
         return result
-        
+
     except Exception as e:
         # Unexpected error - map to INTERNAL_ERROR
         sanitized_error = sanitize_error_message(e)
@@ -292,23 +289,23 @@ def process_item_tailoring(
             "action": "failed",
             "success": False,
             "error_code": ErrorCode.INTERNAL_ERROR.value,
-            "error": f"Internal error: {sanitized_error}"
+            "error": f"Internal error: {sanitized_error}",
         }
-        
+
         # Include job_db_id if available
         if item_job_db_id is not None:
             result["job_db_id"] = item_job_db_id
-        
+
         return result
 
 
 def career_tailor(args: Dict[str, Any]) -> Dict[str, Any]:
     """
     MCP tool handler for career_tailor.
-    
+
     This tool performs batch full-run tailoring: for each tracker item, initialize
     workspace artifacts, generate ai_context.md, and compile resume.tex into resume.pdf.
-    
+
     Args:
         args: Tool arguments containing:
             - items: List of batch items (required, non-empty)
@@ -317,7 +314,7 @@ def career_tailor(args: Dict[str, Any]) -> Dict[str, Any]:
             - resume_template_path: Override path to resume template (optional)
             - applications_dir: Override applications directory (optional)
             - pdflatex_cmd: Override pdflatex command (optional)
-    
+
     Returns:
         Dictionary containing:
             - run_id: Batch run identifier
@@ -327,10 +324,10 @@ def career_tailor(args: Dict[str, Any]) -> Dict[str, Any]:
             - results: List of per-item results in input order
             - successful_items: List of items ready for finalize_resume_batch
             - warnings: List of non-fatal warnings (optional)
-    
+
     Raises:
         ToolError: For request-level validation failures or internal errors
-    
+
     Requirements:
         - 1.1: Require items as a non-empty array
         - 1.2: Each item requires tracker_path
@@ -361,41 +358,40 @@ def career_tailor(args: Dict[str, Any]) -> Dict[str, Any]:
         # Validate request-level parameters (Requirements 1.1-1.6)
         # Extract known parameters and pass rest as kwargs to catch unknown fields
         known_params = {
-            "items", "force", "full_resume_path", "resume_template_path",
-            "applications_dir", "pdflatex_cmd"
+            "items",
+            "force",
+            "full_resume_path",
+            "resume_template_path",
+            "applications_dir",
+            "pdflatex_cmd",
         }
         unknown_params = {k: v for k, v in args.items() if k not in known_params}
-        
-        (
-            items,
-            force,
-            full_resume_path,
-            resume_template_path,
-            applications_dir,
-            pdflatex_cmd
-        ) = validate_career_tailor_batch_parameters(
-            items=args.get("items"),
-            force=args.get("force"),
-            full_resume_path=args.get("full_resume_path"),
-            resume_template_path=args.get("resume_template_path"),
-            applications_dir=args.get("applications_dir"),
-            pdflatex_cmd=args.get("pdflatex_cmd"),
-            **unknown_params
+
+        (items, force, full_resume_path, resume_template_path, applications_dir, pdflatex_cmd) = (
+            validate_career_tailor_batch_parameters(
+                items=args.get("items"),
+                force=args.get("force"),
+                full_resume_path=args.get("full_resume_path"),
+                resume_template_path=args.get("resume_template_path"),
+                applications_dir=args.get("applications_dir"),
+                pdflatex_cmd=args.get("pdflatex_cmd"),
+                **unknown_params,
+            )
         )
-        
+
         # Apply defaults for optional parameters
         full_resume_path = full_resume_path or DEFAULT_FULL_RESUME_PATH
         resume_template_path = resume_template_path or DEFAULT_RESUME_TEMPLATE_PATH
         applications_dir = applications_dir or DEFAULT_APPLICATIONS_DIR
         pdflatex_cmd = pdflatex_cmd or DEFAULT_PDFLATEX_CMD
-        
+
         # Generate run_id
         run_id = generate_run_id("tailor")
-        
+
         # Process each item in input order (Requirements 2.1, 2.2, 2.3, 2.5)
         results: List[Dict[str, Any]] = []
         warnings: List[str] = []
-        
+
         for item in items:
             result = process_item_tailoring(
                 item=item,
@@ -403,35 +399,37 @@ def career_tailor(args: Dict[str, Any]) -> Dict[str, Any]:
                 full_resume_path=full_resume_path,
                 resume_template_path=resume_template_path,
                 applications_dir=applications_dir,
-                pdflatex_cmd=pdflatex_cmd
+                pdflatex_cmd=pdflatex_cmd,
             )
             results.append(result)
-        
+
         # Aggregate counts (Requirement 2.4)
         total_count = len(results)
         success_count = sum(1 for r in results if r["success"])
         failed_count = sum(1 for r in results if not r["success"])
-        
+
         # Build successful_items handoff payload (Requirements 7.1-7.4)
         successful_items: List[Dict[str, Any]] = []
-        
+
         for result in results:
             if result["success"]:
                 # Check if job_db_id is available
                 if "job_db_id" in result:
                     # Include in successful_items for downstream finalize
-                    successful_items.append({
-                        "id": result["job_db_id"],
-                        "tracker_path": result["tracker_path"],
-                        "resume_pdf_path": result["resume_pdf_path"]
-                    })
+                    successful_items.append(
+                        {
+                            "id": result["job_db_id"],
+                            "tracker_path": result["tracker_path"],
+                            "resume_pdf_path": result["resume_pdf_path"],
+                        }
+                    )
                 else:
                     # Successful tailoring but no job_db_id - add warning
                     warnings.append(
                         f"Item {result['tracker_path']} succeeded but has no job_db_id; "
                         f"excluded from successful_items"
                     )
-        
+
         # Build response
         response = {
             "run_id": run_id,
@@ -439,19 +437,19 @@ def career_tailor(args: Dict[str, Any]) -> Dict[str, Any]:
             "success_count": success_count,
             "failed_count": failed_count,
             "results": results,
-            "successful_items": successful_items
+            "successful_items": successful_items,
         }
-        
+
         # Include warnings if any
         if warnings:
             response["warnings"] = warnings
-        
+
         return response
-        
+
     except ToolError:
         # ToolError already has proper error code - re-raise
         raise
-    
+
     except Exception as e:
         # Unexpected error - wrap as INTERNAL_ERROR
         raise create_internal_error(

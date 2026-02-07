@@ -20,15 +20,16 @@ def iso8601_timestamps(draw):
     second = draw(st.integers(min_value=0, max_value=59))
     millisecond = draw(st.integers(min_value=0, max_value=999))
 
-    return f"{year:04d}-{month:02d}-{day:02d}T{hour:02d}:{minute:02d}:{second:02d}.{millisecond:03d}Z"
+    return (
+        f"{year:04d}-{month:02d}-{day:02d}T{hour:02d}:{minute:02d}:{second:02d}.{millisecond:03d}Z"
+    )
 
 
 class TestCursorRoundTripProperty:
     """Property tests for cursor round-trip consistency."""
 
     @given(
-        captured_at=iso8601_timestamps(),
-        record_id=st.integers(min_value=0, max_value=2**31 - 1)
+        captured_at=iso8601_timestamps(), record_id=st.integers(min_value=0, max_value=2**31 - 1)
     )
     def test_cursor_round_trip_consistency(self, captured_at, record_id):
         """
@@ -50,14 +51,13 @@ class TestCursorRoundTripProperty:
         decoded_ts, decoded_id = decode_cursor(cursor)
 
         # Verify round-trip preserves values
-        assert decoded_ts == captured_at, \
+        assert decoded_ts == captured_at, (
             f"Timestamp mismatch: expected {captured_at}, got {decoded_ts}"
-        assert decoded_id == record_id, \
-            f"ID mismatch: expected {record_id}, got {decoded_id}"
+        )
+        assert decoded_id == record_id, f"ID mismatch: expected {record_id}, got {decoded_id}"
 
     @given(
-        captured_at=iso8601_timestamps(),
-        record_id=st.integers(min_value=0, max_value=2**31 - 1)
+        captured_at=iso8601_timestamps(), record_id=st.integers(min_value=0, max_value=2**31 - 1)
     )
     def test_cursor_encoding_is_deterministic(self, captured_at, record_id):
         """
@@ -85,7 +85,7 @@ class TestCursorRoundTripProperty:
     @given(
         captured_at=iso8601_timestamps(),
         id1=st.integers(min_value=0, max_value=2**31 - 1),
-        id2=st.integers(min_value=0, max_value=2**31 - 1)
+        id2=st.integers(min_value=0, max_value=2**31 - 1),
     )
     def test_different_ids_produce_different_cursors(self, captured_at, id1, id2):
         """
@@ -106,13 +106,12 @@ class TestCursorRoundTripProperty:
         cursor1 = encode_cursor(captured_at, id1)
         cursor2 = encode_cursor(captured_at, id2)
 
-        assert cursor1 != cursor2, \
-            f"Different IDs ({id1} vs {id2}) produced same cursor"
+        assert cursor1 != cursor2, f"Different IDs ({id1} vs {id2}) produced same cursor"
 
     @given(
         ts1=iso8601_timestamps(),
         ts2=iso8601_timestamps(),
-        record_id=st.integers(min_value=0, max_value=2**31 - 1)
+        record_id=st.integers(min_value=0, max_value=2**31 - 1),
     )
     def test_different_timestamps_produce_different_cursors(self, ts1, ts2, record_id):
         """
@@ -133,12 +132,10 @@ class TestCursorRoundTripProperty:
         cursor1 = encode_cursor(ts1, record_id)
         cursor2 = encode_cursor(ts2, record_id)
 
-        assert cursor1 != cursor2, \
-            f"Different timestamps ({ts1} vs {ts2}) produced same cursor"
+        assert cursor1 != cursor2, f"Different timestamps ({ts1} vs {ts2}) produced same cursor"
 
     @given(
-        captured_at=iso8601_timestamps(),
-        record_id=st.integers(min_value=0, max_value=2**31 - 1)
+        captured_at=iso8601_timestamps(), record_id=st.integers(min_value=0, max_value=2**31 - 1)
     )
     def test_cursor_is_opaque_string(self, captured_at, record_id):
         """
@@ -164,18 +161,15 @@ class TestCursorRoundTripProperty:
         # Cursor should not contain raw timestamp components
         # (checking for year, which is always present in ISO 8601)
         year = captured_at[:4]
-        assert year not in cursor, \
-            f"Cursor should not contain raw timestamp year: {year}"
+        assert year not in cursor, f"Cursor should not contain raw timestamp year: {year}"
 
         # Cursor should not contain raw ID as a substring
         # (for IDs > 9, check if the ID appears as a substring)
         if record_id > 9:
-            assert str(record_id) not in cursor, \
-                f"Cursor should not contain raw ID: {record_id}"
+            assert str(record_id) not in cursor, f"Cursor should not contain raw ID: {record_id}"
 
     @given(
-        captured_at=iso8601_timestamps(),
-        record_id=st.integers(min_value=0, max_value=2**31 - 1)
+        captured_at=iso8601_timestamps(), record_id=st.integers(min_value=0, max_value=2**31 - 1)
     )
     def test_encoded_cursor_is_valid_base64(self, captured_at, record_id):
         """
@@ -194,12 +188,12 @@ class TestCursorRoundTripProperty:
         cursor = encode_cursor(captured_at, record_id)
 
         # Cursor should only contain base64 characters
-        assert re.match(r'^[A-Za-z0-9+/=]+$', cursor), \
+        assert re.match(r"^[A-Za-z0-9+/=]+$", cursor), (
             f"Cursor contains invalid base64 characters: {cursor}"
+        )
 
     @given(
-        captured_at=iso8601_timestamps(),
-        record_id=st.integers(min_value=0, max_value=2**31 - 1)
+        captured_at=iso8601_timestamps(), record_id=st.integers(min_value=0, max_value=2**31 - 1)
     )
     def test_cursor_decoding_never_returns_none(self, captured_at, record_id):
         """
@@ -217,9 +211,6 @@ class TestCursorRoundTripProperty:
         cursor = encode_cursor(captured_at, record_id)
         result = decode_cursor(cursor)
 
-        assert result is not None, \
-            "Decoding a valid cursor should never return None"
-        assert isinstance(result, tuple), \
-            "Decoded cursor should be a tuple"
-        assert len(result) == 2, \
-            "Decoded cursor should have exactly 2 elements"
+        assert result is not None, "Decoding a valid cursor should never return None"
+        assert isinstance(result, tuple), "Decoded cursor should be a tuple"
+        assert len(result) == 2, "Decoded cursor should have exactly 2 elements"

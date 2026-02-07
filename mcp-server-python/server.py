@@ -284,16 +284,16 @@ def bulk_read_new_jobs_tool(
 ) -> dict:
     """
     Retrieve jobs with status='new' in configurable batches with cursor-based pagination.
-    
+
     This tool provides read-only batch retrieval of job records from a SQLite database
     for downstream LLM triage processing. It maintains deterministic ordering and
     supports pagination through large result sets.
-    
+
     Args:
         limit: Batch size (1-1000, default 50). Number of jobs to retrieve in this page.
         cursor: Opaque pagination cursor returned by previous call. Use to retrieve next page.
         db_path: Optional database path override (default: data/capture/jobs.db).
-    
+
     Returns:
         Dictionary with structure:
         {
@@ -316,7 +316,7 @@ def bulk_read_new_jobs_tool(
             "has_more": bool,        # Whether more pages exist
             "next_cursor": str|None  # Cursor for next page, or None if terminal page
         }
-        
+
         On error, returns:
         {
             "error": {
@@ -325,20 +325,20 @@ def bulk_read_new_jobs_tool(
                 "retryable": bool    # Whether operation can be retried
             }
         }
-    
+
     Examples:
         # Retrieve first page with default limit (50 jobs)
         bulk_read_new_jobs_tool()
-        
+
         # Retrieve first page with custom limit
         bulk_read_new_jobs_tool(limit=100)
-        
+
         # Retrieve next page using cursor from previous response
         bulk_read_new_jobs_tool(limit=50, cursor="eyJjYXB0dXJlZF9hdCI6...")
-        
+
         # Use custom database path
         bulk_read_new_jobs_tool(db_path="custom/path/jobs.db")
-    
+
     Requirements:
         - Requirement 1: Batch Job Retrieval with configurable size
         - Requirement 2: Database Query with deterministic ordering
@@ -350,7 +350,7 @@ def bulk_read_new_jobs_tool(
     """
     # Build arguments dictionary for the tool handler
     args = {}
-    
+
     # Only include parameters that were explicitly provided
     # This allows the tool handler to apply its own defaults
     if limit != 50:  # Only include if non-default
@@ -359,7 +359,7 @@ def bulk_read_new_jobs_tool(
         args["cursor"] = cursor
     if db_path is not None:
         args["db_path"] = db_path
-    
+
     # Call the tool handler and return the result
     return bulk_read_new_jobs(args)
 
@@ -378,18 +378,18 @@ def bulk_update_job_status_tool(
 ) -> dict:
     """
     Update multiple job statuses in a single atomic transaction.
-    
+
     This tool provides write-only batch status updates for job records in SQLite.
     It validates all inputs, checks job existence, and applies updates atomically
     with all-or-nothing semantics. All jobs in a batch receive the same timestamp.
-    
+
     Args:
         updates: Array of update items, each containing:
             - id (int): Job ID to update (must be positive integer)
-            - status (str): Target status value (must be one of: new, shortlist, 
+            - status (str): Target status value (must be one of: new, shortlist,
                            reviewed, reject, resume_written, applied)
         db_path: Optional database path override (default: data/capture/jobs.db).
-    
+
     Returns:
         Dictionary with structure (success case):
         {
@@ -403,7 +403,7 @@ def bulk_update_job_status_tool(
                 ...
             ]
         }
-        
+
         Dictionary with structure (validation failure case):
         {
             "updated_count": 0,
@@ -417,7 +417,7 @@ def bulk_update_job_status_tool(
                 ...
             ]
         }
-        
+
         On system error, returns:
         {
             "error": {
@@ -426,13 +426,13 @@ def bulk_update_job_status_tool(
                 "retryable": bool    # Whether operation can be retried
             }
         }
-    
+
     Examples:
         # Update single job status
         bulk_update_job_status_tool(
             updates=[{"id": 123, "status": "shortlist"}]
         )
-        
+
         # Update multiple jobs in one atomic transaction
         bulk_update_job_status_tool(
             updates=[
@@ -441,20 +441,20 @@ def bulk_update_job_status_tool(
                 {"id": 789, "status": "reject"}
             ]
         )
-        
+
         # Use custom database path
         bulk_update_job_status_tool(
             updates=[{"id": 123, "status": "applied"}],
             db_path="custom/path/jobs.db"
         )
-    
+
     Validation Rules:
         - Batch size: 0-100 updates (empty batch returns success with zero counts)
         - Job IDs: Must be positive integers and exist in database
         - Status values: Must be one of the allowed statuses (case-sensitive, no whitespace)
         - No duplicate job IDs within one batch
         - All updates succeed or all fail (atomic transaction)
-    
+
     Requirements:
         - Requirement 1: Batch Status Updates (1-100 items, atomic)
         - Requirement 2: Status Validation (allowed set, case-sensitive)
@@ -470,11 +470,11 @@ def bulk_update_job_status_tool(
     """
     # Build arguments dictionary for the tool handler
     args = {"updates": updates}
-    
+
     # Only include db_path if explicitly provided
     if db_path is not None:
         args["db_path"] = db_path
-    
+
     # Call the tool handler and return the result
     return bulk_update_job_status(args)
 
@@ -740,10 +740,7 @@ def update_tracker_status_tool(
         - Requirement 11: System Boundaries (tracker-only, no DB writes)
     """
     # Build arguments dictionary for the tool handler
-    args = {
-        "tracker_path": tracker_path,
-        "target_status": target_status
-    }
+    args = {"tracker_path": tracker_path, "target_status": target_status}
 
     # Only include optional parameters if they differ from defaults
     if dry_run:
@@ -1020,24 +1017,24 @@ def career_tailor_tool(
 def main():
     """
     Main entry point for the MCP server.
-    
+
     Runs the server in stdio mode, which is the standard transport
     for MCP servers that are invoked by LLM agents.
     """
     # Load and setup configuration
     config.setup_logging()
-    
+
     # Log startup information
     logger = logging.getLogger(__name__)
     logger.info("Starting JobWorkFlow MCP Server")
     logger.info(f"Server name: {config.server_name}")
     logger.info(f"Database path: {config.db_path}")
-    
+
     # Validate configuration and log warnings
     warnings = config.validate()
     for warning in warnings:
         logger.warning(warning)
-    
+
     # Start the server
     logger.info("Server starting in stdio mode")
     mcp.run(transport="stdio")

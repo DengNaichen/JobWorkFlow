@@ -21,7 +21,7 @@ This skill formalizes the process of autonomously finding new job opportunities 
 ### 1. Scouting Phase
 - **Target Keywords**: "AI Engineer", "Machine Learning Engineer", "Backend Engineer (Python/Go)", "HPC Researcher".
 - **Target Location**: "Ontario, Canada" or "Remote".
-- **Action**: 
+- **Action**:
     - **Step 0**: Use the clawdbot browser relay to verify active connections.
     - Primarily use the clawdbot browser tool via Chrome Extension Relay (profile: "chrome").
     - Navigate to the designated LinkedIn search URLs (Machine Learning & Backend).

@@ -332,3 +332,200 @@ def resolve_resume_pdf_path_from_tracker(
         raise ValueError("Failed to parse resume_path from tracker frontmatter")
     
     return resume_pdf_path
+
+
+def extract_job_description(body: str) -> str:
+    """
+    Extract job description content from tracker body.
+    
+    Searches for the '## Job Description' heading and extracts all content
+    until the next heading of the same or higher level (## or #).
+    
+    Args:
+        body: Markdown body content from tracker file
+        
+    Returns:
+        Job description content (without the heading itself)
+        
+    Raises:
+        TrackerParseError: If '## Job Description' heading is not found
+        
+    Requirements:
+        - 3.4: Require ## Job Description heading
+        - 3.6: Extract job description content for ai_context.md
+        
+    Examples:
+        >>> body = '''## Job Description
+        ... 
+        ... Build scalable systems.
+        ... Work with distributed teams.
+        ... 
+        ... ## Notes
+        ... Some notes here.
+        ... '''
+        >>> extract_job_description(body)
+        'Build scalable systems.\\nWork with distributed teams.'
+        
+        >>> # Missing job description heading
+        >>> body = '''## Notes
+        ... Some notes here.
+        ... '''
+        >>> extract_job_description(body)
+        Traceback (most recent call last):
+        ...
+        TrackerParseError: Tracker is missing required '## Job Description' heading
+    """
+    # Search for ## Job Description heading (case-insensitive)
+    jd_pattern = r'^##\s+Job\s+Description\s*$'
+    lines = body.split('\n')
+    
+    jd_start_idx = None
+    for i, line in enumerate(lines):
+        if re.match(jd_pattern, line.strip(), re.IGNORECASE):
+            jd_start_idx = i
+            break
+    
+    if jd_start_idx is None:
+        raise TrackerParseError("Tracker is missing required '## Job Description' heading")
+    
+    # Extract content until next heading of same or higher level (## or #)
+    jd_content_lines = []
+    for i in range(jd_start_idx + 1, len(lines)):
+        line = lines[i]
+        # Check if this is a heading of level 1 or 2
+        if re.match(r'^#{1,2}\s+', line):
+            break
+        jd_content_lines.append(line)
+    
+    # Join lines and strip leading/trailing whitespace
+    jd_content = '\n'.join(jd_content_lines).strip()
+    
+    return jd_content
+
+
+def parse_tracker_for_career_tailor(tracker_path: str) -> Dict[str, Any]:
+    """
+    Parse tracker file for career_tailor tool with required field validation.
+    
+    This function parses a tracker file and extracts all fields needed for
+    the career_tailor workflow:
+    - Frontmatter fields: company, position, resume_path, optional job_db_id
+    - Job description content from '## Job Description' section
+    
+    Args:
+        tracker_path: Path to the tracker markdown file
+        
+    Returns:
+        Dictionary containing:
+        - company: Company name from frontmatter
+        - position: Position title from frontmatter
+        - resume_path: Resume path from frontmatter (may be None)
+        - job_db_id: Job database ID from frontmatter (may be None)
+        - job_description: Extracted job description content
+        - frontmatter: Complete frontmatter dict (for additional fields)
+        - body: Complete body content (for reference)
+        
+    Raises:
+        FileNotFoundError: If tracker file does not exist or is not readable
+        TrackerParseError: If frontmatter is malformed, missing required fields,
+                          or '## Job Description' heading is missing
+        
+    Requirements:
+        - 3.1: Load tracker markdown from tracker_path
+        - 3.3: Extract frontmatter fields needed for workspace resolution
+        - 3.4: Require ## Job Description heading
+        - 3.6: Extract job description content for ai_context.md
+        
+    Examples:
+        >>> result = parse_tracker_for_career_tailor("trackers/2026-02-05-amazon.md")
+        >>> result["company"]
+        'Amazon'
+        >>> result["position"]
+        'Software Engineer'
+        >>> "Build scalable systems" in result["job_description"]
+        True
+        >>> result["job_db_id"]
+        3629
+    """
+    # Parse tracker file (Requirement 3.1)
+    parsed = parse_tracker_file(tracker_path)
+    frontmatter = parsed["frontmatter"]
+    body = parsed["body"]
+    
+    # Extract required frontmatter fields (Requirement 3.3)
+    company = frontmatter.get("company")
+    position = frontmatter.get("position")
+    resume_path = frontmatter.get("resume_path")
+    job_db_id = frontmatter.get("job_db_id")
+    
+    # Validate required fields
+    if company is None:
+        raise TrackerParseError("Tracker frontmatter is missing required 'company' field")
+    if position is None:
+        raise TrackerParseError("Tracker frontmatter is missing required 'position' field")
+    
+    # Extract job description (Requirements 3.4, 3.6)
+    job_description = extract_job_description(body)
+    
+    return {
+        "company": company,
+        "position": position,
+        "resume_path": resume_path,
+        "job_db_id": job_db_id,
+        "job_description": job_description,
+        "frontmatter": frontmatter,
+        "body": body,
+    }
+
+
+def parse_tracker_for_career_tailor_with_error_mapping(tracker_path: str) -> Dict[str, Any]:
+    """
+    Parse tracker file for career_tailor with ToolError mapping.
+    
+    This function wraps parse_tracker_for_career_tailor and converts exceptions
+    to ToolError instances with appropriate error codes for MCP tool responses:
+    - Missing/unreadable tracker -> FILE_NOT_FOUND
+    - Malformed frontmatter or missing required fields -> VALIDATION_ERROR
+    - Missing '## Job Description' heading -> VALIDATION_ERROR
+    
+    Args:
+        tracker_path: Path to the tracker markdown file
+        
+    Returns:
+        Dictionary containing parsed tracker data (see parse_tracker_for_career_tailor)
+        
+    Raises:
+        ToolError: With FILE_NOT_FOUND code if tracker file is missing/unreadable,
+                   or VALIDATION_ERROR code if validation fails
+        
+    Requirements:
+        - 3.2: Return FILE_NOT_FOUND when tracker file is missing
+        - 3.5: Return VALIDATION_ERROR when ## Job Description is missing
+        
+    Examples:
+        >>> result = parse_tracker_for_career_tailor_with_error_mapping("trackers/valid.md")
+        >>> result["company"]
+        'Amazon'
+        
+        >>> # Missing tracker file
+        >>> try:
+        ...     parse_tracker_for_career_tailor_with_error_mapping("trackers/missing.md")
+        ... except ToolError as e:
+        ...     print(e.code)
+        FILE_NOT_FOUND
+        
+        >>> # Missing job description
+        >>> try:
+        ...     parse_tracker_for_career_tailor_with_error_mapping("trackers/no-jd.md")
+        ... except ToolError as e:
+        ...     print(e.code)
+        VALIDATION_ERROR
+    """
+    try:
+        return parse_tracker_for_career_tailor(tracker_path)
+    except FileNotFoundError as e:
+        # Missing or unreadable tracker -> FILE_NOT_FOUND (Requirement 3.2)
+        raise create_file_not_found_error(tracker_path, "Tracker file") from e
+    except TrackerParseError as e:
+        # Malformed frontmatter, missing fields, or missing JD -> VALIDATION_ERROR (Requirement 3.5)
+        raise create_validation_error(str(e)) from e

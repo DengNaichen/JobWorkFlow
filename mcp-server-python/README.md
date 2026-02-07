@@ -1,6 +1,6 @@
 # MCP Server - JobWorkFlow Tools
 
-Python MCP server for JobWorkFlow operations: reading new jobs, updating job statuses, and initializing tracker files for shortlisted jobs in SQLite database.
+Python MCP server for JobWorkFlow operations: scraping and ingesting jobs, triaging status, initializing trackers, tailoring resume artifacts, and finalizing completion state.
 
 ## Quick Start
 
@@ -31,9 +31,13 @@ This creates a virtual environment at `.venv/` in the repository root with all d
 mcp-server-python/
 ├── server.py       # MCP server entry point (FastMCP)
 ├── tools/          # MCP tool implementations
+│   ├── scrape_jobs.py                      # Ingestion tool
 │   ├── bulk_read_new_jobs.py              # Read tool handler
 │   ├── bulk_update_job_status.py          # Write tool handler
-│   └── initialize_shortlist_trackers.py   # Tracker initialization tool
+│   ├── initialize_shortlist_trackers.py   # Tracker initialization tool
+│   ├── career_tailor.py                   # Batch full-tailor artifact tool
+│   ├── update_tracker_status.py           # Tracker status projection tool
+│   └── finalize_resume_batch.py           # Commit/finalization tool
 ├── db/             # Database access layer
 │   ├── jobs_reader.py              # SQLite read operations
 │   └── jobs_writer.py              # SQLite write operations
@@ -329,6 +333,55 @@ Initialize deterministic tracker markdown files for jobs with `status='shortlist
 - `INTERNAL_ERROR`: Safe to retry after brief delay
 - Idempotent operation: Same parameters can be submitted multiple times safely with `force=false`
 
+#### career_tailor (Artifact Tool)
+
+Run batch full-tailoring for tracker items. For each item, the tool parses tracker context, bootstraps workspace artifacts, regenerates `ai_context.md`, compiles `resume.tex` to `resume.pdf`, and returns `successful_items` for downstream `finalize_resume_batch`.
+
+**Parameters:**
+- `items` (array, required, 1-100): each item contains:
+  - `tracker_path` (str, required)
+  - `job_db_id` (int, optional)
+- `force` (bool, optional): overwrite existing `resume.tex` from template (default: false)
+- `full_resume_path` (str, optional): full resume markdown override
+- `resume_template_path` (str, optional): resume template override
+- `applications_dir` (str, optional): workspace root override
+- `pdflatex_cmd` (str, optional): compile command override (default: `pdflatex`)
+
+**Response (Success or Partial Success):**
+```json
+{
+  "run_id": "tailor_20260207_ab12cd34",
+  "total_count": 3,
+  "success_count": 2,
+  "failed_count": 1,
+  "results": [
+    {
+      "tracker_path": "trackers/2026-02-06-amazon-3629.md",
+      "job_db_id": 3629,
+      "application_slug": "amazon-3629",
+      "workspace_dir": "data/applications/amazon-3629",
+      "resume_tex_path": "data/applications/amazon-3629/resume/resume.tex",
+      "ai_context_path": "data/applications/amazon-3629/resume/ai_context.md",
+      "resume_pdf_path": "data/applications/amazon-3629/resume/resume.pdf",
+      "resume_tex_action": "preserved",
+      "success": true
+    }
+  ],
+  "successful_items": [
+    {
+      "id": 3629,
+      "tracker_path": "trackers/2026-02-06-amazon-3629.md",
+      "resume_pdf_path": "data/applications/amazon-3629/resume/resume.pdf"
+    }
+  ]
+}
+```
+
+**Boundary:**
+- Does NOT update DB status
+- Does NOT update tracker status
+- Does NOT call `finalize_resume_batch` internally
+
 #### update_tracker_status (Projection Tool)
 
 Update tracker frontmatter status with transition policy checks and Resume Written artifact guardrails. This projection-oriented tool operates only on tracker files and does NOT modify database records.
@@ -567,6 +620,128 @@ Before committing, the tool validates:
 - `INTERNAL_ERROR`: Safe to retry after brief delay
 - Per-item artifact failures: Fix artifacts (create PDF, remove placeholders) before retrying
 - Idempotent: Re-running the same valid item keeps final status as `resume_written`
+
+#### scrape_jobs (Ingestion Tool)
+
+Scrape fresh job postings from external sources (JobSpy-backed), normalize records, and insert them into SQLite as `status='new'` items for downstream triage. This ingestion-focused tool provides step-1 pipeline automation with idempotent dedupe semantics.
+
+**Parameters:**
+- `terms` (array of strings, optional): Search terms (default: `['ai engineer','backend engineer','machine learning']`)
+- `location` (str, optional): Search location (default: `'Ontario, Canada'`)
+- `sites` (array of strings, optional): Source sites list (default: `['linkedin']`)
+- `results_wanted` (int, optional): Requested scrape results per term (1-200, default: 20)
+- `hours_old` (int, optional): Recency window in hours (1-168, default: 2)
+- `db_path` (str, optional): Database path override (default: `data/capture/jobs.db`)
+- `status` (str, optional): Initial status for inserted rows (default: `'new'`, must be one of: `new`, `shortlist`, `reviewed`, `reject`, `resume_written`, `applied`)
+- `require_description` (bool, optional): Skip records without descriptions (default: true)
+- `preflight_host` (str, optional): DNS preflight host (default: `'www.linkedin.com'`)
+- `retry_count` (int, optional): Preflight retry count (1-10, default: 3)
+- `retry_sleep_seconds` (number, optional): Base retry sleep seconds (0-300, default: 30)
+- `retry_backoff` (number, optional): Retry backoff multiplier (1-10, default: 2)
+- `save_capture_json` (bool, optional): Persist per-term raw JSON capture files (default: true)
+- `capture_dir` (str, optional): Capture output directory (default: `data/capture`)
+- `dry_run` (bool, optional): Compute counts only; no DB writes (default: false)
+
+**Response (Success or Partial Success):**
+```json
+{
+  "run_id": "scrape_20260206_abcdef12",
+  "started_at": "2026-02-06T18:40:12.001Z",
+  "finished_at": "2026-02-06T18:40:44.337Z",
+  "duration_ms": 32336,
+  "dry_run": false,
+  "results": [
+    {
+      "term": "backend engineer",
+      "success": true,
+      "fetched_count": 20,
+      "cleaned_count": 18,
+      "inserted_count": 7,
+      "duplicate_count": 11,
+      "skipped_no_url": 1,
+      "skipped_no_description": 1,
+      "capture_path": "data/capture/jobspy_linkedin_backend_engineer_ontario_2h.json"
+    },
+    {
+      "term": "ai engineer",
+      "success": false,
+      "fetched_count": 0,
+      "cleaned_count": 0,
+      "inserted_count": 0,
+      "duplicate_count": 0,
+      "skipped_no_url": 0,
+      "skipped_no_description": 0,
+      "error": "preflight DNS failed after retries"
+    }
+  ],
+  "totals": {
+    "term_count": 2,
+    "successful_terms": 1,
+    "failed_terms": 1,
+    "fetched_count": 20,
+    "cleaned_count": 18,
+    "inserted_count": 7,
+    "duplicate_count": 11,
+    "skipped_no_url": 1,
+    "skipped_no_description": 1
+  }
+}
+```
+
+**Error Response (System Failure):**
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR | DB_NOT_FOUND | DB_ERROR | INTERNAL_ERROR",
+    "message": "Human-readable error description",
+    "retryable": false
+  }
+}
+```
+
+**Behavior:**
+- Processes multiple search terms in one run with per-term isolation
+- Scrapes fresh postings from configured source sites (JobSpy adapter)
+- Normalizes raw source records to stable field mapping (`url`, `title`, `description`, `source`, `job_id`, `location`, `company`, `captured_at`, `payload_json`)
+- Filters records based on quality rules (empty URL, missing description)
+- Optionally writes per-term JSON capture files for audit/reproducibility
+- Inserts cleaned records into SQLite with idempotent dedupe by `url`
+- Uses `INSERT OR IGNORE` semantics: duplicate URLs are counted but not re-inserted
+- Existing rows are never updated during dedupe hits
+- Continues processing remaining terms after one term fails (partial success)
+- Preflight DNS checks with retry/backoff for transient network issues
+- Database schema is bootstrapped automatically on first run
+
+**Ingestion Boundaries:**
+- Inserts only with `status='new'` (or validated override)
+- Does NOT update status for existing rows
+- Does NOT invoke tracker creation/finalization/status tools
+- Does NOT perform triage decisions
+- Strict ingestion-only boundary for pipeline step 1
+
+**Validation Rules:**
+- `terms`: Non-empty array of strings (max 20 terms per run)
+- `results_wanted`: Integer in range 1-200
+- `hours_old`: Integer in range 1-168
+- `status`: Must be one of allowed DB status values
+- `retry_count`: Integer in range 1-10
+- `retry_sleep_seconds`: Number in range 0-300
+- `retry_backoff`: Number in range 1-10
+- Unknown request fields are rejected with `VALIDATION_ERROR`
+
+**Error Codes:**
+- `VALIDATION_ERROR` (retryable=false): Invalid input parameters, unknown fields, out-of-range values
+- `DB_NOT_FOUND` (retryable=false): Database file doesn't exist at specified path
+- `DB_ERROR` (retryable varies): Database operation failure, schema bootstrap failure
+- `INTERNAL_ERROR` (retryable=true): Unexpected server error
+
+**Retry Guidance:**
+- `VALIDATION_ERROR`: Fix input parameters before retrying (not retryable)
+- `DB_NOT_FOUND`: Verify database path and file existence (not retryable)
+- `DB_ERROR`: Check error message for details; transient errors may be retryable
+- `INTERNAL_ERROR`: Safe to retry after brief delay
+- Per-term failures: Recorded in results, other terms continue processing
+- Idempotent inserts: Safe to retry the same request multiple times (duplicates are ignored)
 
 ## Testing
 
@@ -987,6 +1162,139 @@ result = finalize_resume_batch_tool(
 - Dry-run mode useful for previewing outcomes before committing
 - Idempotent: safe to retry the same batch multiple times
 - Results array preserves input order
+
+### scrape_jobs
+
+Scrape and ingest job postings with idempotent dedupe:
+
+```python
+# Scrape with default parameters (3 default terms, Ontario location, LinkedIn source)
+result = scrape_jobs_tool()
+# Returns: {"run_id": "scrape_20260206_abcdef12", "started_at": "...", "finished_at": "...",
+#           "duration_ms": 32336, "dry_run": false, "results": [...], "totals": {...}}
+
+# Scrape with custom terms
+result = scrape_jobs_tool(
+    terms=["python developer", "data scientist"],
+    location="Toronto, ON",
+    results_wanted=50
+)
+# Returns: {"run_id": "scrape_20260206_xyz789", "results": [
+#   {"term": "python developer", "success": true, "fetched_count": 50, "cleaned_count": 48, 
+#    "inserted_count": 35, "duplicate_count": 13, ...},
+#   {"term": "data scientist", "success": true, "fetched_count": 50, "cleaned_count": 47, 
+#    "inserted_count": 42, "duplicate_count": 5, ...}
+# ], "totals": {...}}
+
+# Dry-run mode - compute counts without DB writes
+result = scrape_jobs_tool(
+    terms=["backend engineer"],
+    dry_run=True
+)
+# Returns: {"run_id": "scrape_20260206_abc123", "dry_run": true, "results": [
+#   {"term": "backend engineer", "success": true, "fetched_count": 20, "cleaned_count": 18,
+#    "inserted_count": 0, "duplicate_count": 0, ...}
+# ], "totals": {...}}
+
+# Custom database and capture paths
+result = scrape_jobs_tool(
+    terms=["ai engineer"],
+    db_path="custom/path/jobs.db",
+    capture_dir="custom/capture"
+)
+# Returns: {"run_id": "scrape_20260206_def456", "results": [...], "totals": {...}}
+
+# Disable capture file writes
+result = scrape_jobs_tool(
+    terms=["machine learning"],
+    save_capture_json=False
+)
+# Returns: {"run_id": "scrape_20260206_ghi789", "results": [
+#   {"term": "machine learning", "success": true, "fetched_count": 20, "cleaned_count": 18,
+#    "inserted_count": 12, "duplicate_count": 6}
+#   # Note: No capture_path field when save_capture_json=false
+# ], "totals": {...}}
+
+# Allow records without descriptions
+result = scrape_jobs_tool(
+    terms=["software engineer"],
+    require_description=False
+)
+# Returns: {"run_id": "scrape_20260206_jkl012", "results": [
+#   {"term": "software engineer", "success": true, "fetched_count": 20, "cleaned_count": 20,
+#    "inserted_count": 15, "duplicate_count": 5, "skipped_no_url": 0, "skipped_no_description": 0}
+# ], "totals": {...}}
+
+# Custom status for inserted rows (default is 'new')
+result = scrape_jobs_tool(
+    terms=["devops engineer"],
+    status="shortlist"
+)
+# Returns: {"run_id": "scrape_20260206_mno345", "results": [...], "totals": {...}}
+# Note: Inserted rows will have status='shortlist' instead of 'new'
+
+# Partial success - one term fails, others continue
+result = scrape_jobs_tool(
+    terms=["backend engineer", "frontend engineer", "fullstack engineer"]
+)
+# Returns: {"run_id": "scrape_20260206_pqr678", "results": [
+#   {"term": "backend engineer", "success": true, "fetched_count": 20, "inserted_count": 15, ...},
+#   {"term": "frontend engineer", "success": false, "fetched_count": 0, "inserted_count": 0,
+#    "error": "preflight DNS failed after retries"},
+#   {"term": "fullstack engineer", "success": true, "fetched_count": 20, "inserted_count": 18, ...}
+# ], "totals": {"term_count": 3, "successful_terms": 2, "failed_terms": 1, ...}}
+
+# Idempotent behavior - repeated runs yield duplicates not inserts
+result = scrape_jobs_tool(terms=["ai engineer"])
+# First run: {"results": [{"term": "ai engineer", "inserted_count": 15, "duplicate_count": 0}], ...}
+result = scrape_jobs_tool(terms=["ai engineer"])
+# Second run: {"results": [{"term": "ai engineer", "inserted_count": 0, "duplicate_count": 15}], ...}
+# Note: Same URLs are detected as duplicates and not re-inserted
+
+# Custom preflight and retry settings
+result = scrape_jobs_tool(
+    terms=["cloud engineer"],
+    preflight_host="www.linkedin.com",
+    retry_count=5,
+    retry_sleep_seconds=10,
+    retry_backoff=1.5
+)
+# Returns: {"run_id": "scrape_20260206_stu901", "results": [...], "totals": {...}}
+
+# Validation error - invalid results_wanted
+result = scrape_jobs_tool(
+    terms=["backend engineer"],
+    results_wanted=500  # Exceeds maximum of 200
+)
+# Returns: {"error": {"code": "VALIDATION_ERROR", 
+#           "message": "results_wanted must be between 1 and 200", "retryable": false}}
+
+# Validation error - unknown field
+result = scrape_jobs_tool(
+    terms=["backend engineer"],
+    unknown_field="value"
+)
+# Returns: {"error": {"code": "VALIDATION_ERROR", 
+#           "message": "Unknown parameter: unknown_field", "retryable": false}}
+
+# Empty terms list - validation error
+result = scrape_jobs_tool(terms=[])
+# Returns: {"error": {"code": "VALIDATION_ERROR", 
+#           "message": "terms must be a non-empty array", "retryable": false}}
+```
+
+**Important Notes:**
+- Tool is ingestion-focused: scrapes, normalizes, and inserts with `status='new'` (or override)
+- Database is the SSOT (Single Source of Truth) for job records
+- Does NOT update status for existing rows during dedupe hits
+- Does NOT invoke tracker creation/finalization/status tools
+- Does NOT perform triage decisions
+- Idempotent inserts: safe to run multiple times (duplicates detected by URL)
+- Per-term isolation: one term failure doesn't block other terms
+- Preflight DNS checks with retry/backoff for transient network issues
+- Optional capture files for audit/reproducibility
+- Dry-run mode useful for previewing outcomes before actual writes
+- Results array maintains term order from request
 
 ## Input/Output Schemas
 
@@ -1474,6 +1782,226 @@ result = finalize_resume_batch_tool(
 - `action=failed` when preconditions fail or finalization fails
 - `resume_pdf_path` may be null for items that fail early validation
 - `error` field only present when `success=false`
+
+### scrape_jobs Input Schema
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "terms": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Search terms (default: ['ai engineer','backend engineer','machine learning'])"
+    },
+    "location": {
+      "type": "string",
+      "description": "Search location (default: 'Ontario, Canada')"
+    },
+    "sites": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Source sites list (default: ['linkedin'])"
+    },
+    "results_wanted": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "description": "Requested scrape results per term (default: 20)"
+    },
+    "hours_old": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 168,
+      "description": "Recency window in hours (default: 2)"
+    },
+    "db_path": {
+      "type": "string",
+      "description": "Optional SQLite path override (default: data/capture/jobs.db)"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["new", "shortlist", "reviewed", "reject", "resume_written", "applied"],
+      "description": "Initial status for inserted rows (default: 'new')"
+    },
+    "require_description": {
+      "type": "boolean",
+      "description": "Skip records without descriptions (default: true)"
+    },
+    "preflight_host": {
+      "type": "string",
+      "description": "DNS preflight host (default: 'www.linkedin.com')"
+    },
+    "retry_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10,
+      "description": "Preflight retry count (default: 3)"
+    },
+    "retry_sleep_seconds": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 300,
+      "description": "Base retry sleep seconds (default: 30)"
+    },
+    "retry_backoff": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 10,
+      "description": "Retry backoff multiplier (default: 2)"
+    },
+    "save_capture_json": {
+      "type": "boolean",
+      "description": "Persist per-term raw JSON capture files (default: true)"
+    },
+    "capture_dir": {
+      "type": "string",
+      "description": "Capture output directory (default: data/capture)"
+    },
+    "dry_run": {
+      "type": "boolean",
+      "description": "Compute counts only; no DB writes (default: false)"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+**Additional Semantic Rules:**
+- `terms` must be non-empty array (max 20 terms per run)
+- All numeric parameters must be within specified ranges
+- `status` values are case-sensitive and must not have leading/trailing whitespace
+- Unknown request fields are rejected with `VALIDATION_ERROR`
+
+### scrape_jobs Output Schema (Success or Partial Success)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Unique run identifier (format: scrape_YYYYMMDD_<8-char-hex>)"
+    },
+    "started_at": {
+      "type": "string",
+      "description": "ISO 8601 UTC timestamp when run started"
+    },
+    "finished_at": {
+      "type": "string",
+      "description": "ISO 8601 UTC timestamp when run finished"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "description": "Total run duration in milliseconds"
+    },
+    "dry_run": {
+      "type": "boolean",
+      "description": "Whether this was a dry-run (no DB writes)"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "description": "Search term processed"
+          },
+          "success": {
+            "type": "boolean",
+            "description": "Whether term processing succeeded"
+          },
+          "fetched_count": {
+            "type": "integer",
+            "description": "Number of raw records fetched from source"
+          },
+          "cleaned_count": {
+            "type": "integer",
+            "description": "Number of records after normalization and filtering"
+          },
+          "inserted_count": {
+            "type": "integer",
+            "description": "Number of new records inserted into database"
+          },
+          "duplicate_count": {
+            "type": "integer",
+            "description": "Number of records skipped as duplicates (URL already exists)"
+          },
+          "skipped_no_url": {
+            "type": "integer",
+            "description": "Number of records skipped due to missing URL"
+          },
+          "skipped_no_description": {
+            "type": "integer",
+            "description": "Number of records skipped due to missing description (when require_description=true)"
+          },
+          "capture_path": {
+            "type": "string",
+            "description": "Path to capture JSON file (only present when save_capture_json=true)"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message (only present when success=false)"
+          }
+        },
+        "required": ["term", "success", "fetched_count", "cleaned_count", "inserted_count", "duplicate_count", "skipped_no_url", "skipped_no_description"]
+      }
+    },
+    "totals": {
+      "type": "object",
+      "properties": {
+        "term_count": {
+          "type": "integer",
+          "description": "Total number of terms processed"
+        },
+        "successful_terms": {
+          "type": "integer",
+          "description": "Number of terms that succeeded"
+        },
+        "failed_terms": {
+          "type": "integer",
+          "description": "Number of terms that failed"
+        },
+        "fetched_count": {
+          "type": "integer",
+          "description": "Total raw records fetched across all terms"
+        },
+        "cleaned_count": {
+          "type": "integer",
+          "description": "Total cleaned records across all terms"
+        },
+        "inserted_count": {
+          "type": "integer",
+          "description": "Total new records inserted across all terms"
+        },
+        "duplicate_count": {
+          "type": "integer",
+          "description": "Total duplicates skipped across all terms"
+        },
+        "skipped_no_url": {
+          "type": "integer",
+          "description": "Total records skipped for missing URL across all terms"
+        },
+        "skipped_no_description": {
+          "type": "integer",
+          "description": "Total records skipped for missing description across all terms"
+        }
+      },
+      "required": ["term_count", "successful_terms", "failed_terms", "fetched_count", "cleaned_count", "inserted_count", "duplicate_count", "skipped_no_url", "skipped_no_description"]
+    }
+  },
+  "required": ["run_id", "started_at", "finished_at", "duration_ms", "dry_run", "results", "totals"]
+}
+```
+
+**Additional Semantic Rules:**
+- Results array maintains term order from request
+- Per-term failures are recorded in `results[*].error` while allowing partial success
+- `capture_path` only present when `save_capture_json=true` and capture write succeeded
+- `error` field only present when `success=false`
+- In dry-run mode, `inserted_count` and `duplicate_count` are always 0
+- Totals aggregate all per-term counters
 
 ### Error Response Schema (All Tools)
 

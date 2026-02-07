@@ -97,6 +97,7 @@ class TestAtomicWriteIntegration:
         workspace_root = base_dir / application_slug
         assert (workspace_root / "resume").is_dir()
         assert (workspace_root / "cover").is_dir()
+        assert (workspace_root / "cv").is_dir()
         assert tracker_path.exists()
 
         written_content = tracker_path.read_text()

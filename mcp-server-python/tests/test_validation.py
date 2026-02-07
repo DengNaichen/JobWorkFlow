@@ -2053,3 +2053,487 @@ class TestValidateFinalizeItem:
         is_valid, error = validate_finalize_item(item)
         assert is_valid is True
         assert error is None
+
+
+
+class TestValidateCareerTailorItems:
+    """Tests for career_tailor items parameter validation."""
+    
+    def test_valid_single_item(self):
+        """Test that batch with single item is valid."""
+        from utils.validation import validate_career_tailor_items
+        items = [{"tracker_path": "trackers/test.md"}]
+        result = validate_career_tailor_items(items)
+        assert result == items
+    
+    def test_valid_multiple_items(self):
+        """Test that batch with multiple items is valid."""
+        from utils.validation import validate_career_tailor_items
+        items = [
+            {"tracker_path": "trackers/test1.md"},
+            {"tracker_path": "trackers/test2.md"},
+            {"tracker_path": "trackers/test3.md"}
+        ]
+        result = validate_career_tailor_items(items)
+        assert result == items
+    
+    def test_valid_100_items(self):
+        """Test that batch with exactly 100 items is valid."""
+        from utils.validation import validate_career_tailor_items
+        items = [{"tracker_path": f"trackers/test{i}.md"} for i in range(100)]
+        result = validate_career_tailor_items(items)
+        assert result == items
+    
+    def test_items_null_raises_error(self):
+        """Test that None items raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_items
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_items(None)
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "cannot be null" in error.message.lower()
+        assert not error.retryable
+    
+    def test_items_empty_array_raises_error(self):
+        """Test that empty array raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_items
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_items([])
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "cannot be empty" in error.message.lower()
+        assert not error.retryable
+    
+    def test_items_exceeds_maximum_raises_error(self):
+        """Test that batch with 101 items raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_items
+        items = [{"tracker_path": f"trackers/test{i}.md"} for i in range(101)]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_items(items)
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "Batch size too large" in error.message
+        assert "101" in error.message
+        assert "100" in error.message
+        assert not error.retryable
+    
+    def test_items_invalid_type_string(self):
+        """Test that string items raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_items
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_items("not an array")
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "type" in error.message.lower()
+        assert "str" in error.message
+    
+    def test_items_invalid_type_dict(self):
+        """Test that dict items raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_items
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_items({"tracker_path": "test.md"})
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "type" in error.message.lower()
+
+
+class TestValidateCareerTailorItem:
+    """Tests for individual career_tailor item validation."""
+    
+    def test_valid_item_with_tracker_path_only(self):
+        """Test that item with only tracker_path is valid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"tracker_path": "trackers/test.md"}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is True
+        assert error is None
+    
+    def test_valid_item_with_job_db_id(self):
+        """Test that item with tracker_path and job_db_id is valid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"tracker_path": "trackers/test.md", "job_db_id": 123}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is True
+        assert error is None
+    
+    def test_item_missing_tracker_path(self):
+        """Test that item without tracker_path is invalid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"job_db_id": 123}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is False
+        assert "missing required field 'tracker_path'" in error.lower()
+    
+    def test_item_tracker_path_empty_string(self):
+        """Test that item with empty tracker_path is invalid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"tracker_path": ""}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is False
+        assert "cannot be empty" in error.lower()
+    
+    def test_item_tracker_path_whitespace_only(self):
+        """Test that item with whitespace-only tracker_path is invalid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"tracker_path": "   "}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is False
+        assert "cannot be empty" in error.lower()
+    
+    def test_item_tracker_path_invalid_type(self):
+        """Test that item with non-string tracker_path is invalid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"tracker_path": 123}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is False
+        assert "must be a string" in error.lower()
+        assert "int" in error
+    
+    def test_item_job_db_id_positive_integer(self):
+        """Test that positive job_db_id values are valid."""
+        from utils.validation import validate_career_tailor_item
+        for job_id in [1, 100, 9999]:
+            item = {"tracker_path": "trackers/test.md", "job_db_id": job_id}
+            is_valid, error = validate_career_tailor_item(item)
+            assert is_valid is True
+            assert error is None
+    
+    def test_item_job_db_id_zero_invalid(self):
+        """Test that job_db_id of 0 is invalid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"tracker_path": "trackers/test.md", "job_db_id": 0}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is False
+        assert "positive integer" in error.lower()
+        assert "0" in error
+    
+    def test_item_job_db_id_negative_invalid(self):
+        """Test that negative job_db_id is invalid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"tracker_path": "trackers/test.md", "job_db_id": -1}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is False
+        assert "positive integer" in error.lower()
+    
+    def test_item_job_db_id_invalid_type_string(self):
+        """Test that string job_db_id is invalid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"tracker_path": "trackers/test.md", "job_db_id": "123"}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is False
+        assert "must be an integer" in error.lower()
+        assert "str" in error
+    
+    def test_item_job_db_id_invalid_type_float(self):
+        """Test that float job_db_id is invalid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"tracker_path": "trackers/test.md", "job_db_id": 123.45}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is False
+        assert "must be an integer" in error.lower()
+        assert "float" in error
+    
+    def test_item_job_db_id_invalid_type_boolean(self):
+        """Test that boolean job_db_id is invalid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"tracker_path": "trackers/test.md", "job_db_id": True}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is False
+        assert "must be an integer" in error.lower()
+    
+    def test_item_with_unknown_field(self):
+        """Test that item with unknown field is invalid."""
+        from utils.validation import validate_career_tailor_item
+        item = {"tracker_path": "trackers/test.md", "unknown_field": "value"}
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is False
+        assert "unknown fields" in error.lower()
+        assert "unknown_field" in error
+    
+    def test_item_with_multiple_unknown_fields(self):
+        """Test that item with multiple unknown fields is invalid."""
+        from utils.validation import validate_career_tailor_item
+        item = {
+            "tracker_path": "trackers/test.md",
+            "field1": "value1",
+            "field2": "value2"
+        }
+        is_valid, error = validate_career_tailor_item(item)
+        assert is_valid is False
+        assert "unknown fields" in error.lower()
+        assert "field1" in error
+        assert "field2" in error
+    
+    def test_item_not_dict(self):
+        """Test that non-dict item is invalid."""
+        from utils.validation import validate_career_tailor_item
+        is_valid, error = validate_career_tailor_item("not a dict")
+        assert is_valid is False
+        assert "must be an object" in error.lower()
+        assert "str" in error
+
+
+class TestValidateCareerTailorBatchParameters:
+    """Tests for career_tailor batch parameters validation."""
+    
+    def test_valid_minimal_request(self):
+        """Test validation with only required items parameter."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        result = validate_career_tailor_batch_parameters(items=items)
+        
+        assert result[0] == items  # validated_items
+        assert result[1] is False  # validated_force (default)
+        assert result[2] is None  # full_resume_path
+        assert result[3] is None  # resume_template_path
+        assert result[4] is None  # applications_dir
+        assert result[5] is None  # pdflatex_cmd
+    
+    def test_valid_with_all_optional_parameters(self):
+        """Test validation with all optional parameters."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        result = validate_career_tailor_batch_parameters(
+            items=items,
+            force=True,
+            full_resume_path="data/resume.tex",
+            resume_template_path="templates/resume.tex",
+            applications_dir="data/apps",
+            pdflatex_cmd="pdflatex"
+        )
+        
+        assert result[0] == items
+        assert result[1] is True
+        assert result[2] == "data/resume.tex"
+        assert result[3] == "templates/resume.tex"
+        assert result[4] == "data/apps"
+        assert result[5] == "pdflatex"
+    
+    def test_valid_force_false(self):
+        """Test validation with force=False."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        result = validate_career_tailor_batch_parameters(items=items, force=False)
+        
+        assert result[1] is False
+    
+    def test_unknown_parameter_raises_error(self):
+        """Test that unknown parameter raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(
+                items=items,
+                unknown_param="value"
+            )
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "Unknown input properties" in error.message
+        assert "unknown_param" in error.message
+        assert not error.retryable
+    
+    def test_multiple_unknown_parameters_raises_error(self):
+        """Test that multiple unknown parameters are all reported."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(
+                items=items,
+                param1="value1",
+                param2="value2"
+            )
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "Unknown input properties" in error.message
+        assert "param1" in error.message
+        assert "param2" in error.message
+    
+    def test_force_invalid_type_raises_error(self):
+        """Test that non-boolean force raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(items=items, force="true")
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "force" in error.message.lower()
+        assert "type" in error.message.lower()
+    
+    def test_full_resume_path_empty_raises_error(self):
+        """Test that empty full_resume_path raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(
+                items=items,
+                full_resume_path=""
+            )
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "full_resume_path" in error.message
+        assert "cannot be empty" in error.message.lower()
+    
+    def test_full_resume_path_whitespace_raises_error(self):
+        """Test that whitespace-only full_resume_path raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(
+                items=items,
+                full_resume_path="   "
+            )
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "full_resume_path" in error.message
+        assert "cannot be empty" in error.message.lower()
+    
+    def test_full_resume_path_invalid_type_raises_error(self):
+        """Test that non-string full_resume_path raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(
+                items=items,
+                full_resume_path=123
+            )
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "full_resume_path" in error.message
+        assert "type" in error.message.lower()
+    
+    def test_resume_template_path_empty_raises_error(self):
+        """Test that empty resume_template_path raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(
+                items=items,
+                resume_template_path=""
+            )
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "resume_template_path" in error.message
+        assert "cannot be empty" in error.message.lower()
+    
+    def test_resume_template_path_invalid_type_raises_error(self):
+        """Test that non-string resume_template_path raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(
+                items=items,
+                resume_template_path=["path"]
+            )
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "resume_template_path" in error.message
+        assert "type" in error.message.lower()
+    
+    def test_applications_dir_empty_raises_error(self):
+        """Test that empty applications_dir raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(
+                items=items,
+                applications_dir=""
+            )
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "applications_dir" in error.message
+        assert "cannot be empty" in error.message.lower()
+    
+    def test_applications_dir_invalid_type_raises_error(self):
+        """Test that non-string applications_dir raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(
+                items=items,
+                applications_dir=123
+            )
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "applications_dir" in error.message
+        assert "type" in error.message.lower()
+    
+    def test_pdflatex_cmd_empty_raises_error(self):
+        """Test that empty pdflatex_cmd raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(
+                items=items,
+                pdflatex_cmd=""
+            )
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "pdflatex_cmd" in error.message
+        assert "cannot be empty" in error.message.lower()
+    
+    def test_pdflatex_cmd_invalid_type_raises_error(self):
+        """Test that non-string pdflatex_cmd raises VALIDATION_ERROR."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        items = [{"tracker_path": "trackers/test.md"}]
+        
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(
+                items=items,
+                pdflatex_cmd=True
+            )
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "pdflatex_cmd" in error.message
+        assert "type" in error.message.lower()
+    
+    def test_items_validation_errors_propagate(self):
+        """Test that items validation errors are propagated."""
+        from utils.validation import validate_career_tailor_batch_parameters
+        
+        # Empty items array
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(items=[])
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "cannot be empty" in error.message.lower()
+        
+        # None items
+        with pytest.raises(ToolError) as exc_info:
+            validate_career_tailor_batch_parameters(items=None)
+        
+        error = exc_info.value
+        assert error.code == ErrorCode.VALIDATION_ERROR
+        assert "cannot be null" in error.message.lower()

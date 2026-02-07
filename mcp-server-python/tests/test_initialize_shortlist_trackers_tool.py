@@ -310,6 +310,8 @@ Existing legacy tracker.
             assert (workspace_root / "resume").is_dir()
             assert (workspace_root / "cover").exists()
             assert (workspace_root / "cover").is_dir()
+            assert (workspace_root / "cv").exists()
+            assert (workspace_root / "cv").is_dir()
 
     def test_limit_parameter(self, tmp_path, test_db):
         """Test limit parameter restricts number of jobs processed."""

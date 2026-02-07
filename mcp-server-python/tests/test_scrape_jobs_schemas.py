@@ -20,4 +20,3 @@ class TestScrapeJobsRequest:
         mapped = map_pydantic_validation_error(exc_info.value)
         assert mapped.code == ErrorCode.VALIDATION_ERROR
         assert "dry_run" in mapped.message.lower()
-

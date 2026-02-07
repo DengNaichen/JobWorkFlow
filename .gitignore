@@ -50,6 +50,7 @@ htmlcov/
 # MCP binaries
 mcp-server/kaka-job-scout
 mcp-server/mcp-server
+mcp-server-python/mcp-config.json
 
 # Resume exports
 resume/

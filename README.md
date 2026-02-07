@@ -80,6 +80,9 @@ JobWorkFlow/
 │   ├── utils/                  # Validation, parser, sync, file ops
 │   ├── models/                 # Error and schema models
 │   └── tests/                  # Test suite
+├── skills/                     # Project-owned Codex skills
+│   ├── job-pipeline-intake/    # scrape/read/triage/status/tracker init policy
+│   └── career-tailor-finalize/ # tailoring + artifact guardrails + finalize policy
 ├── scripts/                    # Operational helper scripts
 ├── data/                       # Local data (DB, templates, artifacts)
 ├── trackers/                   # Tracker markdown notes
@@ -210,6 +213,22 @@ For full contracts and examples, see `mcp-server-python/README.md`.
 Use a single end-to-end execution prompt from:
 
 - `docs/pipeline-prompt.md` (versioned, copy-paste ready full workflow prompt)
+
+## Project Skills
+
+Project skills live in this repo under:
+
+- `skills/job-pipeline-intake/SKILL.md`
+- `skills/career-tailor-finalize/SKILL.md`
+
+Recommended runtime setup is to expose these repo skills through your Codex skills directory:
+
+```bash
+ln -s /Users/nd/Developer/JobWorkFlow/skills/job-pipeline-intake /Users/nd/.codex/skills/job-pipeline-intake
+ln -s /Users/nd/Developer/JobWorkFlow/skills/career-tailor-finalize /Users/nd/.codex/skills/career-tailor-finalize
+```
+
+This keeps skills versioned in Git while making them available as first-class skills in Codex.
 
 ## Development
 

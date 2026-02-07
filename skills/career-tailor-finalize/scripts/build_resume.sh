@@ -4,7 +4,7 @@
 
 COMPANY_SLUG=$1
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASE_DIR="${JOBWORKFLOW_ROOT:-$(cd "$SCRIPT_DIR/../../../.." && pwd)}"
+BASE_DIR="${JOBWORKFLOW_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
 TEMPLATE_PATH="$BASE_DIR/data/templates/resume_skeleton.tex"
 TARGET_DIR="$BASE_DIR/data/applications/$COMPANY_SLUG/resume"
 TARGET_TEX="$TARGET_DIR/resume.tex"

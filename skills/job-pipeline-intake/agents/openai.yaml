@@ -1,0 +1,4 @@
+interface:
+  display_name: "Job Pipeline Intake"
+  short_description: "Run intake triage and tracker initialization"
+  default_prompt: "Use $job-pipeline-intake to run scrape, triage recommendations or updates, and shortlist tracker initialization in one pass."

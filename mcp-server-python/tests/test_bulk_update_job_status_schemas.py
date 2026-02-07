@@ -30,4 +30,3 @@ class TestBulkUpdateJobStatusRequest:
         mapped = map_pydantic_validation_error(exc_info.value)
         assert mapped.code == ErrorCode.VALIDATION_ERROR
         assert "db_path" in mapped.message.lower()
-

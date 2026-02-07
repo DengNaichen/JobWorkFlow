@@ -24,4 +24,3 @@ class TestInitializeShortlistTrackersRequest:
         mapped = map_pydantic_validation_error(exc_info.value)
         assert mapped.code == ErrorCode.VALIDATION_ERROR
         assert "limit" in mapped.message.lower()
-

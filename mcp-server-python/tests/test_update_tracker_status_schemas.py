@@ -22,4 +22,3 @@ class TestUpdateTrackerStatusRequest:
         mapped = map_pydantic_validation_error(exc_info.value)
         assert mapped.code == ErrorCode.VALIDATION_ERROR
         assert "target_status" in mapped.message.lower()
-

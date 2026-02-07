@@ -33,4 +33,3 @@ def map_pydantic_validation_error(error: ValidationError) -> ToolError:
     if field:
         return create_validation_error(f"Invalid {field}: {message}")
     return create_validation_error(message)
-

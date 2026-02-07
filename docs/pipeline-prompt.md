@@ -1,4 +1,4 @@
-# JobWorkFlow Pipeline Prompt (v1)
+# JobWorkFlow Pipeline Prompt (v2)
 
 Use this prompt for one complete pipeline run with current implemented MCP tools.
 
@@ -24,6 +24,10 @@ Hard Rules:
 2) Never generate fake resume artifacts. If real resume files are missing or invalid, do not move to Resume Written / resume_written.
 3) Continue when safe on partial failures and report per-step errors.
 4) Use repo-root-relative paths only; do not write outside this repository.
+5) Use project skills as policy layers:
+   - Start intake phase with `job-pipeline-intake`
+   - Start artifact/finalize phase with `career-tailor-finalize`
+   - Report `skills_used` and `skills_skipped` in final output
 
 Execution Steps:
 1) Run scrape_jobs with defaults to ingest fresh jobs into DB.
@@ -38,6 +42,8 @@ Execution Steps:
 8) Leave failed/unqualified items at shortlist/reviewed and include concrete reasons.
 
 Output Format (required):
+- skills_used: [skill_name...]
+- skills_skipped: [{name, reason}] (empty array when none)
 - run_id (if available)
 - scrape totals: fetched / cleaned / inserted / duplicate
 - triage totals: shortlist / reviewed / reject
@@ -49,6 +55,9 @@ Output Format (required):
 
 ## Notes
 
+- Project skill files:
+  - `skills/job-pipeline-intake/SKILL.md`
+  - `skills/career-tailor-finalize/SKILL.md`
 - `career_tailor` is artifact-focused and does not finalize DB/tracker statuses.
 - Keep finalization as a separate explicit step via `finalize_resume_batch`.
 - Update this file when tool contracts change.

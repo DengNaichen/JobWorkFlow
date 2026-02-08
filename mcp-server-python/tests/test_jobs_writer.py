@@ -4,13 +4,14 @@ Unit tests for JobsWriter class.
 Tests transaction management, connection handling, and write operations.
 """
 
-import pytest
+import os
 import sqlite3
 import tempfile
-import os
 
+import pytest
 from db.jobs_writer import JobsWriter, resolve_db_path
-from models.errors import ToolError, ErrorCode
+from models.errors import ErrorCode, ToolError
+from models.status import JobDbStatus
 
 
 @pytest.fixture
@@ -295,8 +296,8 @@ def test_update_multiple_jobs(temp_db):
     timestamp = "2024-01-15T12:00:00.000Z"
 
     with JobsWriter(temp_db) as writer:
-        writer.update_job_status(1, "shortlist", timestamp)
-        writer.update_job_status(3, "reviewed", timestamp)
+        writer.update_job_status(1, JobDbStatus.SHORTLIST, timestamp)
+        writer.update_job_status(3, JobDbStatus.REVIEWED, timestamp)
         writer.commit()
 
     # Verify updates were applied
@@ -308,10 +309,10 @@ def test_update_multiple_jobs(temp_db):
 
     assert len(rows) == 2
     assert rows[0]["id"] == 1
-    assert rows[0]["status"] == "shortlist"
+    assert rows[0]["status"] == JobDbStatus.SHORTLIST
     assert rows[0]["updated_at"] == timestamp
     assert rows[1]["id"] == 3
-    assert rows[1]["status"] == "reviewed"
+    assert rows[1]["status"] == JobDbStatus.REVIEWED
     assert rows[1]["updated_at"] == timestamp
 
 
@@ -526,8 +527,8 @@ def test_schema_preflight_allows_updates_when_column_exists(temp_db):
         assert missing == []
 
         # Execute updates
-        writer.update_job_status(1, "shortlist", timestamp)
-        writer.update_job_status(2, "reviewed", timestamp)
+        writer.update_job_status(1, JobDbStatus.SHORTLIST, timestamp)
+        writer.update_job_status(2, JobDbStatus.REVIEWED, timestamp)
 
         # Commit transaction
         writer.commit()
@@ -541,10 +542,10 @@ def test_schema_preflight_allows_updates_when_column_exists(temp_db):
 
     assert len(rows) == 2
     assert rows[0]["id"] == 1
-    assert rows[0]["status"] == "shortlist"
+    assert rows[0]["status"] == JobDbStatus.SHORTLIST
     assert rows[0]["updated_at"] == timestamp
     assert rows[1]["id"] == 2
-    assert rows[1]["status"] == "reviewed"
+    assert rows[1]["status"] == JobDbStatus.REVIEWED
     assert rows[1]["updated_at"] == timestamp
 
 
@@ -821,7 +822,7 @@ def test_fallback_to_reviewed_success(temp_db_with_finalize_columns):
     row = cursor.fetchone()
     conn.close()
 
-    assert row["status"] == "reviewed"
+    assert row["status"] == JobDbStatus.REVIEWED
     assert row["last_error"] == error_message
     assert row["attempt_count"] == 1  # Preserved (attempt already counted)
     assert row["updated_at"] == timestamp
@@ -919,7 +920,7 @@ def test_fallback_to_reviewed_preserves_other_fields(temp_db_with_finalize_colum
     conn.close()
 
     # Status and error fields updated
-    assert row["status"] == "reviewed"
+    assert row["status"] == JobDbStatus.REVIEWED
     assert row["last_error"] == error_message
     assert row["attempt_count"] == 1
     assert row["updated_at"] == timestamp

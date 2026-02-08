@@ -5,17 +5,17 @@ Provides read-only access to the jobs database with connection management
 and deterministic query execution.
 """
 
-import sqlite3
 import os
-from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
+import sqlite3
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from models.errors import (
-    create_db_not_found_error,
     create_db_error,
+    create_db_not_found_error,
 )
-
+from models.status import JobDbStatus
 
 # Default database path relative to repository root
 DEFAULT_DB_PATH = "data/capture/jobs.db"
@@ -160,11 +160,11 @@ def query_new_jobs(
                     status,
                     captured_at
                 FROM jobs
-                WHERE status = 'new'
+                WHERE status = ?
                 ORDER BY captured_at DESC, id DESC
                 LIMIT ?
             """
-            params = (limit + 1,)
+            params = (JobDbStatus.NEW, limit + 1)
         else:
             # Subsequent page - apply cursor boundary
             cursor_ts, cursor_id = cursor
@@ -181,7 +181,7 @@ def query_new_jobs(
                     status,
                     captured_at
                 FROM jobs
-                WHERE status = 'new'
+                WHERE status = ?
                   AND (
                     captured_at < ?
                     OR (captured_at = ? AND id < ?)
@@ -189,7 +189,7 @@ def query_new_jobs(
                 ORDER BY captured_at DESC, id DESC
                 LIMIT ?
             """
-            params = (cursor_ts, cursor_ts, cursor_id, limit + 1)
+            params = (JobDbStatus.NEW, cursor_ts, cursor_ts, cursor_id, limit + 1)
 
         # Execute query
         cursor_obj = conn.execute(query, params)
@@ -262,11 +262,11 @@ def query_shortlist_jobs(conn: sqlite3.Connection, limit: int) -> List[Dict[str,
                 captured_at,
                 status
             FROM jobs
-            WHERE status = 'shortlist'
+            WHERE status = ?
             ORDER BY captured_at DESC, id DESC
             LIMIT ?
         """
-        params = (limit,)
+        params = (JobDbStatus.SHORTLIST, limit)
 
         # Execute query
         cursor_obj = conn.execute(query, params)

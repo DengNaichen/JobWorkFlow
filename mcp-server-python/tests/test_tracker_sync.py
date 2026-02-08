@@ -8,9 +8,10 @@ Tests verify:
 - Error handling
 """
 
-import pytest
 import os
 
+import pytest
+from models.status import JobTrackerStatus
 from utils.tracker_sync import update_tracker_status
 
 
@@ -52,7 +53,7 @@ Initial review completed.
     tracker_path.write_text(original_content, encoding="utf-8")
 
     # Update status
-    update_tracker_status(str(tracker_path), "Resume Written")
+    update_tracker_status(str(tracker_path), JobTrackerStatus.RESUME_WRITTEN)
 
     # Read updated content
     updated_content = tracker_path.read_text(encoding="utf-8")
@@ -96,7 +97,7 @@ Test content.
     tracker_path.write_text(original_content, encoding="utf-8")
 
     # Update status to same value
-    update_tracker_status(str(tracker_path), "Reviewed")
+    update_tracker_status(str(tracker_path), JobTrackerStatus.REVIEWED)
 
     # Read updated content
     updated_content = tracker_path.read_text(encoding="utf-8")

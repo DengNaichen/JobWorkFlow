@@ -6,8 +6,9 @@ Validates limit, db_path, and cursor parameters according to requirements.
 
 from datetime import datetime, timezone
 from typing import Optional, Tuple
-from models.errors import create_validation_error
 
+from models.errors import create_validation_error
+from models.status import JobDbStatus, JobTrackerStatus
 
 # Constants for validation
 DEFAULT_LIMIT = 50
@@ -18,20 +19,6 @@ MAX_LIMIT = 1000
 INITIALIZE_DEFAULT_LIMIT = 50
 INITIALIZE_MIN_LIMIT = 1
 INITIALIZE_MAX_LIMIT = 200
-
-# Allowed status values for job status updates
-ALLOWED_STATUSES = {"new", "shortlist", "reviewed", "reject", "resume_written", "applied"}
-
-# Allowed tracker status values for update_tracker_status tool
-ALLOWED_TRACKER_STATUSES = {
-    "Reviewed",
-    "Resume Written",
-    "Applied",
-    "Interview",
-    "Offer",
-    "Rejected",
-    "Ghosted",
-}
 
 
 def validate_limit(limit: Optional[int]) -> int:
@@ -194,9 +181,12 @@ def validate_status(status) -> str:
         )
 
     # Check against allowed statuses (case-sensitive)
-    if status not in ALLOWED_STATUSES:
+    try:
+        JobDbStatus(status)
+    except ValueError:
+        allowed = ", ".join(sorted(s.value for s in JobDbStatus))
         raise create_validation_error(
-            f"Invalid status value: '{status}'. Allowed values are: {', '.join(sorted(ALLOWED_STATUSES))}"
+            f"Invalid status value: '{status}'. Allowed values are: {allowed}"
         )
 
     return status
@@ -569,8 +559,12 @@ def validate_tracker_status(target_status) -> str:
         )
 
     # Check against allowed tracker statuses (case-sensitive, Requirement 3.3)
-    if target_status not in ALLOWED_TRACKER_STATUSES:
-        allowed_list = ", ".join(f"'{s}'" for s in sorted(ALLOWED_TRACKER_STATUSES))
+    try:
+        JobTrackerStatus(target_status)
+    except ValueError:
+        allowed_list = ", ".join(
+            f"'{s.value}'" for s in sorted(JobTrackerStatus, key=lambda s: s.value)
+        )
         raise create_validation_error(
             f"Invalid target_status value: '{target_status}'. Allowed values are: {allowed_list}"
         )
@@ -1325,7 +1319,7 @@ def validate_scrape_status(status: Optional[str]) -> str:
     """
     # Use default if not provided
     if status is None:
-        return "new"
+        return JobDbStatus.NEW
 
     # Check type
     if not isinstance(status, str):
@@ -1344,9 +1338,12 @@ def validate_scrape_status(status: Optional[str]) -> str:
         )
 
     # Check against allowed statuses (case-sensitive)
-    if status not in ALLOWED_STATUSES:
+    try:
+        JobDbStatus(status)
+    except ValueError:
+        allowed = ", ".join(sorted(s.value for s in JobDbStatus))
         raise create_validation_error(
-            f"Invalid status value: '{status}'. Allowed values are: {', '.join(sorted(ALLOWED_STATUSES))}"
+            f"Invalid status value: '{status}'. Allowed values are: {allowed}"
         )
 
     return status

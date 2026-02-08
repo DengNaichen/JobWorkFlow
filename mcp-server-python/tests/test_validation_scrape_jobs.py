@@ -8,33 +8,34 @@ hours_old, retry fields, status, and unknown keys.
 """
 
 import pytest
+from models.errors import ErrorCode, ToolError
+from models.status import JobDbStatus
 from utils.validation import (
-    validate_scrape_terms,
-    validate_results_wanted,
+    DEFAULT_HOURS_OLD,
+    DEFAULT_RESULTS_WANTED,
+    DEFAULT_RETRY_BACKOFF,
+    DEFAULT_RETRY_COUNT,
+    DEFAULT_RETRY_SLEEP_SECONDS,
+    DEFAULT_SCRAPE_TERMS,
+    MAX_HOURS_OLD,
+    MAX_RESULTS_WANTED,
+    MAX_RETRY_BACKOFF,
+    MAX_RETRY_COUNT,
+    MAX_RETRY_SLEEP_SECONDS,
+    MIN_HOURS_OLD,
+    MIN_RESULTS_WANTED,
+    MIN_RETRY_BACKOFF,
+    MIN_RETRY_COUNT,
+    MIN_RETRY_SLEEP_SECONDS,
     validate_hours_old,
+    validate_results_wanted,
+    validate_retry_backoff,
     validate_retry_count,
     validate_retry_sleep_seconds,
-    validate_retry_backoff,
-    validate_scrape_status,
     validate_scrape_jobs_parameters,
-    DEFAULT_SCRAPE_TERMS,
-    DEFAULT_RESULTS_WANTED,
-    MIN_RESULTS_WANTED,
-    MAX_RESULTS_WANTED,
-    DEFAULT_HOURS_OLD,
-    MIN_HOURS_OLD,
-    MAX_HOURS_OLD,
-    DEFAULT_RETRY_COUNT,
-    MIN_RETRY_COUNT,
-    MAX_RETRY_COUNT,
-    DEFAULT_RETRY_SLEEP_SECONDS,
-    MIN_RETRY_SLEEP_SECONDS,
-    MAX_RETRY_SLEEP_SECONDS,
-    DEFAULT_RETRY_BACKOFF,
-    MIN_RETRY_BACKOFF,
-    MAX_RETRY_BACKOFF,
+    validate_scrape_status,
+    validate_scrape_terms,
 )
-from models.errors import ToolError, ErrorCode
 
 
 class TestValidateScrapeTerms:
@@ -462,13 +463,12 @@ class TestValidateScrapeStatus:
     def test_default_status_when_none(self):
         """Test that None returns the default status 'new'."""
         result = validate_scrape_status(None)
-        assert result == "new"
+        assert result == JobDbStatus.NEW
 
     def test_valid_statuses(self):
         """Test that all valid status values are accepted."""
-        valid_statuses = ["new", "shortlist", "reviewed", "reject", "resume_written", "applied"]
-        for status in valid_statuses:
-            result = validate_scrape_status(status)
+        for status in JobDbStatus:
+            result = validate_scrape_status(status.value)
             assert result == status
 
     def test_invalid_status_value_raises_error(self):
@@ -532,7 +532,7 @@ class TestValidateScrapeJobsParameters:
         assert result["results_wanted"] == 20
         assert result["hours_old"] == 2
         assert result["db_path"] is None
-        assert result["status"] == "new"
+        assert result["status"] == JobDbStatus.NEW
         assert result["require_description"] is True
         assert result["preflight_host"] == "www.linkedin.com"
         assert result["retry_count"] == 3

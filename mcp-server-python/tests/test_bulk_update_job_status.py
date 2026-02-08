@@ -5,13 +5,14 @@ Tests the complete tool workflow including validation, database operations,
 transaction management, and response formatting.
 """
 
-import pytest
+import os
 import sqlite3
 import tempfile
-import os
 
-from tools.bulk_update_job_status import bulk_update_job_status
+import pytest
 from models.errors import ErrorCode
+from models.status import JobDbStatus
+from tools.bulk_update_job_status import bulk_update_job_status
 
 
 @pytest.fixture
@@ -114,7 +115,7 @@ class TestSuccessfulUpdates:
     def test_single_update_succeeds(self, temp_db):
         """Test updating a single job status."""
         result = bulk_update_job_status(
-            {"updates": [{"id": 1, "status": "shortlist"}], "db_path": temp_db}
+            {"updates": [{"id": 1, "status": JobDbStatus.SHORTLIST}], "db_path": temp_db}
         )
 
         assert result["updated_count"] == 1
@@ -129,16 +130,16 @@ class TestSuccessfulUpdates:
         row = cursor.fetchone()
         conn.close()
 
-        assert row[0] == "shortlist"
+        assert row[0] == JobDbStatus.SHORTLIST
 
     def test_multiple_updates_succeed(self, temp_db):
         """Test updating multiple jobs in one batch."""
         result = bulk_update_job_status(
             {
                 "updates": [
-                    {"id": 1, "status": "shortlist"},
-                    {"id": 2, "status": "reviewed"},
-                    {"id": 3, "status": "reject"},
+                    {"id": 1, "status": JobDbStatus.SHORTLIST},
+                    {"id": 2, "status": JobDbStatus.REVIEWED},
+                    {"id": 3, "status": JobDbStatus.REJECT},
                 ],
                 "db_path": temp_db,
             }
@@ -159,16 +160,16 @@ class TestSuccessfulUpdates:
         rows = cursor.fetchall()
         conn.close()
 
-        assert rows[0]["status"] == "shortlist"
-        assert rows[1]["status"] == "reviewed"
-        assert rows[2]["status"] == "reject"
+        assert rows[0]["status"] == JobDbStatus.SHORTLIST
+        assert rows[1]["status"] == JobDbStatus.REVIEWED
+        assert rows[2]["status"] == JobDbStatus.REJECT
 
     def test_idempotent_update_succeeds(self, temp_db):
         """Test updating a job to its current status (idempotent)."""
         result = bulk_update_job_status(
             {
                 "updates": [
-                    {"id": 1, "status": "new"}  # Job 1 already has status 'new'
+                    {"id": 1, "status": JobDbStatus.NEW}  # Job 1 already has status 'new'
                 ],
                 "db_path": temp_db,
             }
@@ -185,12 +186,18 @@ class TestSuccessfulUpdates:
         row = cursor.fetchone()
         conn.close()
 
-        assert row["status"] == "new"
+        assert row["status"] == JobDbStatus.NEW
         assert row["updated_at"] is not None
 
     def test_all_valid_statuses(self, temp_db):
         """Test all valid status values."""
-        valid_statuses = ["new", "shortlist", "reviewed", "reject", "resume_written"]
+        valid_statuses = [
+            JobDbStatus.NEW,
+            JobDbStatus.SHORTLIST,
+            JobDbStatus.REVIEWED,
+            JobDbStatus.REJECT,
+            JobDbStatus.RESUME_WRITTEN,
+        ]
 
         for i, status in enumerate(valid_statuses, start=1):
             result = bulk_update_job_status(
@@ -222,7 +229,7 @@ class TestValidationErrors:
 
     def test_batch_size_too_large(self, temp_db):
         """Test error when batch size exceeds 100."""
-        updates = [{"id": i, "status": "new"} for i in range(1, 102)]
+        updates = [{"id": i, "status": JobDbStatus.NEW} for i in range(1, 102)]
 
         result = bulk_update_job_status({"updates": updates, "db_path": temp_db})
 
@@ -235,9 +242,9 @@ class TestValidationErrors:
         result = bulk_update_job_status(
             {
                 "updates": [
-                    {"id": 1, "status": "shortlist"},
-                    {"id": 2, "status": "reviewed"},
-                    {"id": 1, "status": "reject"},  # Duplicate ID
+                    {"id": 1, "status": JobDbStatus.SHORTLIST},
+                    {"id": 2, "status": JobDbStatus.REVIEWED},
+                    {"id": 1, "status": JobDbStatus.REJECT},  # Duplicate ID
                 ],
                 "db_path": temp_db,
             }
@@ -252,10 +259,10 @@ class TestValidationErrors:
         result = bulk_update_job_status(
             {
                 "updates": [
-                    {"id": "abc", "status": "new"},
-                    {"id": "abc", "status": "shortlist"},
-                    {"id": 1, "status": "reviewed"},
-                    {"id": 1, "status": "reject"},
+                    {"id": "abc", "status": JobDbStatus.NEW},
+                    {"id": "abc", "status": JobDbStatus.SHORTLIST},
+                    {"id": 1, "status": JobDbStatus.REVIEWED},
+                    {"id": 1, "status": JobDbStatus.REJECT},
                 ],
                 "db_path": temp_db,
             }
@@ -272,7 +279,7 @@ class TestPerItemFailures:
     def test_nonexistent_job_id(self, temp_db):
         """Test failure when job ID doesn't exist."""
         result = bulk_update_job_status(
-            {"updates": [{"id": 999, "status": "shortlist"}], "db_path": temp_db}
+            {"updates": [{"id": 999, "status": JobDbStatus.SHORTLIST}], "db_path": temp_db}
         )
 
         assert result["updated_count"] == 0
@@ -296,7 +303,7 @@ class TestPerItemFailures:
     def test_invalid_job_id_type(self, temp_db):
         """Test failure when job ID is not an integer."""
         result = bulk_update_job_status(
-            {"updates": [{"id": "not_an_int", "status": "shortlist"}], "db_path": temp_db}
+            {"updates": [{"id": "not_an_int", "status": JobDbStatus.SHORTLIST}], "db_path": temp_db}
         )
 
         assert result["updated_count"] == 0
@@ -307,7 +314,7 @@ class TestPerItemFailures:
     def test_negative_job_id(self, temp_db):
         """Test failure when job ID is negative."""
         result = bulk_update_job_status(
-            {"updates": [{"id": -1, "status": "shortlist"}], "db_path": temp_db}
+            {"updates": [{"id": -1, "status": JobDbStatus.SHORTLIST}], "db_path": temp_db}
         )
 
         assert result["updated_count"] == 0
@@ -320,7 +327,7 @@ class TestPerItemFailures:
         result = bulk_update_job_status(
             {
                 "updates": [
-                    {"status": "shortlist"}  # Missing 'id'
+                    {"status": JobDbStatus.SHORTLIST}  # Missing 'id'
                 ],
                 "db_path": temp_db,
             }
@@ -363,9 +370,9 @@ class TestPerItemFailures:
         result = bulk_update_job_status(
             {
                 "updates": [
-                    {"id": 1, "status": "shortlist"},  # Valid
-                    {"id": 999, "status": "reviewed"},  # Invalid (doesn't exist)
-                    {"id": 3, "status": "reject"},  # Valid
+                    {"id": 1, "status": JobDbStatus.SHORTLIST},  # Valid
+                    {"id": 999, "status": JobDbStatus.REVIEWED},  # Invalid (doesn't exist)
+                    {"id": 3, "status": JobDbStatus.REJECT},  # Valid
                 ],
                 "db_path": temp_db,
             }
@@ -382,7 +389,7 @@ class TestPerItemFailures:
         conn.close()
 
         # Both should still be 'new' (original value)
-        assert all(row[0] == "new" for row in rows)
+        assert all(row[0] == JobDbStatus.NEW for row in rows)
 
 
 class TestDatabaseErrors:
@@ -391,7 +398,10 @@ class TestDatabaseErrors:
     def test_database_not_found(self):
         """Test error when database file doesn't exist."""
         result = bulk_update_job_status(
-            {"updates": [{"id": 1, "status": "shortlist"}], "db_path": "/nonexistent/path/to/db.db"}
+            {
+                "updates": [{"id": 1, "status": JobDbStatus.SHORTLIST}],
+                "db_path": "/nonexistent/path/to/db.db",
+            }
         )
 
         assert "error" in result
@@ -401,7 +411,10 @@ class TestDatabaseErrors:
     def test_missing_updated_at_column(self, temp_db_no_updated_at):
         """Test error when updated_at column is missing."""
         result = bulk_update_job_status(
-            {"updates": [{"id": 1, "status": "shortlist"}], "db_path": temp_db_no_updated_at}
+            {
+                "updates": [{"id": 1, "status": JobDbStatus.SHORTLIST}],
+                "db_path": temp_db_no_updated_at,
+            }
         )
 
         assert "error" in result
@@ -416,7 +429,7 @@ class TestTimestampBehavior:
     def test_timestamp_is_set(self, temp_db):
         """Test that updated_at timestamp is set."""
         result = bulk_update_job_status(
-            {"updates": [{"id": 1, "status": "shortlist"}], "db_path": temp_db}
+            {"updates": [{"id": 1, "status": JobDbStatus.SHORTLIST}], "db_path": temp_db}
         )
 
         assert result["updated_count"] == 1
@@ -438,9 +451,9 @@ class TestTimestampBehavior:
         result = bulk_update_job_status(
             {
                 "updates": [
-                    {"id": 1, "status": "shortlist"},
-                    {"id": 2, "status": "reviewed"},
-                    {"id": 3, "status": "reject"},
+                    {"id": 1, "status": JobDbStatus.SHORTLIST},
+                    {"id": 2, "status": JobDbStatus.REVIEWED},
+                    {"id": 3, "status": JobDbStatus.REJECT},
                 ],
                 "db_path": temp_db,
             }
@@ -466,9 +479,9 @@ class TestResponseStructure:
         result = bulk_update_job_status(
             {
                 "updates": [
-                    {"id": 3, "status": "shortlist"},
-                    {"id": 1, "status": "reviewed"},
-                    {"id": 2, "status": "reject"},
+                    {"id": 3, "status": JobDbStatus.SHORTLIST},
+                    {"id": 1, "status": JobDbStatus.REVIEWED},
+                    {"id": 2, "status": JobDbStatus.REJECT},
                 ],
                 "db_path": temp_db,
             }
@@ -482,7 +495,7 @@ class TestResponseStructure:
     def test_response_has_required_fields(self, temp_db):
         """Test that response has all required fields."""
         result = bulk_update_job_status(
-            {"updates": [{"id": 1, "status": "shortlist"}], "db_path": temp_db}
+            {"updates": [{"id": 1, "status": JobDbStatus.SHORTLIST}], "db_path": temp_db}
         )
 
         # Check top-level fields
@@ -513,8 +526,8 @@ class TestAtomicity:
         result = bulk_update_job_status(
             {
                 "updates": [
-                    {"id": 1, "status": "shortlist"},  # Valid
-                    {"id": 999, "status": "reviewed"},  # Invalid (doesn't exist)
+                    {"id": 1, "status": JobDbStatus.SHORTLIST},  # Valid
+                    {"id": 999, "status": JobDbStatus.REVIEWED},  # Invalid (doesn't exist)
                 ],
                 "db_path": temp_db,
             }

@@ -6,7 +6,9 @@ transition checks, guardrails, dry-run, and atomic file operations.
 """
 
 from pathlib import Path
+
 import pytest
+from models.status import JobTrackerStatus
 from tools.update_tracker_status import update_tracker_status
 
 
@@ -122,7 +124,7 @@ WORK-BULLET-POINT-placeholder
 
     def test_missing_tracker_path(self):
         """Test that missing tracker_path returns VALIDATION_ERROR."""
-        result = update_tracker_status({"target_status": "Resume Written"})
+        result = update_tracker_status({"target_status": JobTrackerStatus.RESUME_WRITTEN})
 
         assert "error" in result
         assert result["error"]["code"] == "VALIDATION_ERROR"
@@ -151,7 +153,7 @@ WORK-BULLET-POINT-placeholder
         result = update_tracker_status(
             {
                 "tracker_path": test_tracker,
-                "target_status": "Resume Written",
+                "target_status": JobTrackerStatus.RESUME_WRITTEN,
                 "unknown_param": "value",
             }
         )
@@ -167,7 +169,10 @@ WORK-BULLET-POINT-placeholder
     def test_tracker_not_found(self):
         """Test that missing tracker file returns FILE_NOT_FOUND."""
         result = update_tracker_status(
-            {"tracker_path": "nonexistent/tracker.md", "target_status": "Resume Written"}
+            {
+                "tracker_path": "nonexistent/tracker.md",
+                "target_status": JobTrackerStatus.RESUME_WRITTEN,
+            }
         )
 
         assert "error" in result
@@ -179,12 +184,14 @@ WORK-BULLET-POINT-placeholder
 
     def test_noop_same_status(self, test_tracker):
         """Test that setting status to current value returns noop."""
-        result = update_tracker_status({"tracker_path": test_tracker, "target_status": "Reviewed"})
+        result = update_tracker_status(
+            {"tracker_path": test_tracker, "target_status": JobTrackerStatus.REVIEWED}
+        )
 
         assert result["success"] is True
         assert result["action"] == "noop"
-        assert result["previous_status"] == "Reviewed"
-        assert result["target_status"] == "Reviewed"
+        assert result["previous_status"] == JobTrackerStatus.REVIEWED
+        assert result["target_status"] == JobTrackerStatus.REVIEWED
         assert result["dry_run"] is False
 
     # ========================================================================
@@ -194,13 +201,13 @@ WORK-BULLET-POINT-placeholder
     def test_successful_forward_transition(self, test_tracker):
         """Test successful forward transition from Reviewed to Resume Written."""
         result = update_tracker_status(
-            {"tracker_path": test_tracker, "target_status": "Resume Written"}
+            {"tracker_path": test_tracker, "target_status": JobTrackerStatus.RESUME_WRITTEN}
         )
 
         assert result["success"] is True
         assert result["action"] == "updated"
-        assert result["previous_status"] == "Reviewed"
-        assert result["target_status"] == "Resume Written"
+        assert result["previous_status"] == JobTrackerStatus.REVIEWED
+        assert result["target_status"] == JobTrackerStatus.RESUME_WRITTEN
         assert result["guardrail_check_passed"] is True
         assert result["warnings"] == []
 
@@ -214,12 +221,14 @@ WORK-BULLET-POINT-placeholder
 
     def test_successful_transition_to_terminal_status(self, test_tracker):
         """Test successful transition to terminal status (Rejected)."""
-        result = update_tracker_status({"tracker_path": test_tracker, "target_status": "Rejected"})
+        result = update_tracker_status(
+            {"tracker_path": test_tracker, "target_status": JobTrackerStatus.REJECTED}
+        )
 
         assert result["success"] is True
         assert result["action"] == "updated"
-        assert result["previous_status"] == "Reviewed"
-        assert result["target_status"] == "Rejected"
+        assert result["previous_status"] == JobTrackerStatus.REVIEWED
+        assert result["target_status"] == JobTrackerStatus.REJECTED
 
         # Verify file was updated
         tracker_path = Path(test_tracker)
@@ -229,13 +238,16 @@ WORK-BULLET-POINT-placeholder
     def test_transition_resume_written_to_applied(self, test_tracker_with_resume_written):
         """Test successful transition from Resume Written to Applied."""
         result = update_tracker_status(
-            {"tracker_path": test_tracker_with_resume_written, "target_status": "Applied"}
+            {
+                "tracker_path": test_tracker_with_resume_written,
+                "target_status": JobTrackerStatus.APPLIED,
+            }
         )
 
         assert result["success"] is True
         assert result["action"] == "updated"
-        assert result["previous_status"] == "Resume Written"
-        assert result["target_status"] == "Applied"
+        assert result["previous_status"] == JobTrackerStatus.RESUME_WRITTEN
+        assert result["target_status"] == JobTrackerStatus.APPLIED
 
     # ========================================================================
     # Test: Blocked Transitions (Policy Violations)
@@ -244,7 +256,10 @@ WORK-BULLET-POINT-placeholder
     def test_blocked_backward_transition(self, test_tracker_with_resume_written):
         """Test that backward transition is blocked without force."""
         result = update_tracker_status(
-            {"tracker_path": test_tracker_with_resume_written, "target_status": "Reviewed"}
+            {
+                "tracker_path": test_tracker_with_resume_written,
+                "target_status": JobTrackerStatus.REVIEWED,
+            }
         )
 
         assert result["success"] is False
@@ -261,7 +276,7 @@ WORK-BULLET-POINT-placeholder
         result = update_tracker_status(
             {
                 "tracker_path": test_tracker_with_resume_written,
-                "target_status": "Reviewed",
+                "target_status": JobTrackerStatus.REVIEWED,
                 "force": True,
             }
         )
@@ -295,7 +310,7 @@ resume_path: "[[data/applications/missing/resume/resume.pdf]]"
         tracker_path.write_text(content)
 
         result = update_tracker_status(
-            {"tracker_path": str(tracker_path), "target_status": "Resume Written"}
+            {"tracker_path": str(tracker_path), "target_status": JobTrackerStatus.RESUME_WRITTEN}
         )
 
         assert result["success"] is False
@@ -320,7 +335,7 @@ resume_path: "{test_resume_with_placeholders}"
         tracker_path.write_text(content)
 
         result = update_tracker_status(
-            {"tracker_path": str(tracker_path), "target_status": "Resume Written"}
+            {"tracker_path": str(tracker_path), "target_status": JobTrackerStatus.RESUME_WRITTEN}
         )
 
         assert result["success"] is False
@@ -342,7 +357,7 @@ company: TestCo
         tracker_path.write_text(content)
 
         result = update_tracker_status(
-            {"tracker_path": str(tracker_path), "target_status": "Resume Written"}
+            {"tracker_path": str(tracker_path), "target_status": JobTrackerStatus.RESUME_WRITTEN}
         )
 
         assert "error" in result
@@ -357,7 +372,11 @@ company: TestCo
     def test_dry_run_successful_transition(self, test_tracker):
         """Test dry-run mode returns predicted action without writing."""
         result = update_tracker_status(
-            {"tracker_path": test_tracker, "target_status": "Resume Written", "dry_run": True}
+            {
+                "tracker_path": test_tracker,
+                "target_status": JobTrackerStatus.RESUME_WRITTEN,
+                "dry_run": True,
+            }
         )
 
         assert result["success"] is True
@@ -375,7 +394,7 @@ company: TestCo
         result = update_tracker_status(
             {
                 "tracker_path": test_tracker_with_resume_written,
-                "target_status": "Reviewed",
+                "target_status": JobTrackerStatus.REVIEWED,
                 "dry_run": True,
             }
         )
@@ -405,7 +424,11 @@ resume_path: "[[data/applications/missing/resume/resume.pdf]]"
         tracker_path.write_text(content)
 
         result = update_tracker_status(
-            {"tracker_path": str(tracker_path), "target_status": "Resume Written", "dry_run": True}
+            {
+                "tracker_path": str(tracker_path),
+                "target_status": JobTrackerStatus.RESUME_WRITTEN,
+                "dry_run": True,
+            }
         )
 
         assert result["success"] is False
@@ -424,7 +447,7 @@ resume_path: "[[data/applications/missing/resume/resume.pdf]]"
 
         # Update status
         result = update_tracker_status(
-            {"tracker_path": test_tracker, "target_status": "Resume Written"}
+            {"tracker_path": test_tracker, "target_status": JobTrackerStatus.RESUME_WRITTEN}
         )
 
         assert result["success"] is True
@@ -453,7 +476,7 @@ resume_path: "[[data/applications/missing/resume/resume.pdf]]"
     def test_response_structure_success(self, test_tracker):
         """Test that success response has all required fields."""
         result = update_tracker_status(
-            {"tracker_path": test_tracker, "target_status": "Resume Written"}
+            {"tracker_path": test_tracker, "target_status": JobTrackerStatus.RESUME_WRITTEN}
         )
 
         # Required fields
@@ -471,7 +494,10 @@ resume_path: "[[data/applications/missing/resume/resume.pdf]]"
     def test_response_structure_blocked(self, test_tracker_with_resume_written):
         """Test that blocked response has all required fields."""
         result = update_tracker_status(
-            {"tracker_path": test_tracker_with_resume_written, "target_status": "Reviewed"}
+            {
+                "tracker_path": test_tracker_with_resume_written,
+                "target_status": JobTrackerStatus.REVIEWED,
+            }
         )
 
         # Required fields
@@ -489,7 +515,7 @@ resume_path: "[[data/applications/missing/resume/resume.pdf]]"
     def test_response_structure_top_level_error(self):
         """Test that top-level error has correct structure."""
         result = update_tracker_status(
-            {"tracker_path": "nonexistent.md", "target_status": "Resume Written"}
+            {"tracker_path": "nonexistent.md", "target_status": JobTrackerStatus.RESUME_WRITTEN}
         )
 
         assert "error" in result

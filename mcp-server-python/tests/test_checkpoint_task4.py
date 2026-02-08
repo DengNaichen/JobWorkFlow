@@ -8,19 +8,20 @@ This test validates:
 4. Database connections are properly closed
 """
 
-import pytest
+import os
 import sqlite3
 import tempfile
-import os
 
+import pytest
 from db.jobs_writer import JobsWriter
-from models.errors import ToolError, ErrorCode
+from models.errors import ErrorCode, ToolError
+from models.status import JobDbStatus
 from utils.validation import (
-    validate_status,
-    validate_job_id,
-    validate_batch_size,
-    validate_unique_job_ids,
     get_current_utc_timestamp,
+    validate_batch_size,
+    validate_job_id,
+    validate_status,
+    validate_unique_job_ids,
 )
 
 
@@ -67,8 +68,8 @@ class TestCheckpointTask4:
     def test_validation_functions_work_correctly(self):
         """Verify all validation functions work as expected."""
         # Test status validation
-        assert validate_status("new") == "new"
-        assert validate_status("shortlist") == "shortlist"
+        assert validate_status(JobDbStatus.NEW) == JobDbStatus.NEW
+        assert validate_status(JobDbStatus.SHORTLIST) == JobDbStatus.SHORTLIST
 
         with pytest.raises(ToolError) as exc_info:
             validate_status("invalid")
@@ -84,7 +85,7 @@ class TestCheckpointTask4:
 
         # Test batch size validation
         validate_batch_size([])  # Should not raise
-        validate_batch_size([{"id": 1, "status": "new"}])  # Should not raise
+        validate_batch_size([{"id": 1, "status": JobDbStatus.NEW}])  # Should not raise
 
         with pytest.raises(ToolError) as exc_info:
             validate_batch_size([{"id": i} for i in range(101)])
@@ -126,7 +127,7 @@ class TestCheckpointTask4:
                 writer.ensure_updated_at_column()
 
                 # First update is valid
-                writer.update_job_status(1, "shortlist", timestamp)
+                writer.update_job_status(1, JobDbStatus.SHORTLIST, timestamp)
 
                 # Simulate validation failure by checking for non-existent job
                 missing = writer.validate_jobs_exist([1, 999])
@@ -143,7 +144,7 @@ class TestCheckpointTask4:
         row = cursor.fetchone()
         conn.close()
 
-        assert row[0] == "new"  # Should still be original value
+        assert row[0] == JobDbStatus.NEW  # Should still be original value
 
     def test_transaction_rollback_on_exception(self, temp_db):
         """Verify transaction rollback works when exception occurs."""
@@ -151,8 +152,8 @@ class TestCheckpointTask4:
 
         try:
             with JobsWriter(temp_db) as writer:
-                writer.update_job_status(1, "shortlist", timestamp)
-                writer.update_job_status(2, "reviewed", timestamp)
+                writer.update_job_status(1, JobDbStatus.SHORTLIST, timestamp)
+                writer.update_job_status(2, JobDbStatus.REVIEWED, timestamp)
                 # Raise exception before commit
                 raise RuntimeError("Simulated error")
         except RuntimeError:
@@ -164,8 +165,8 @@ class TestCheckpointTask4:
         rows = cursor.fetchall()
         conn.close()
 
-        assert rows[0][0] == "new"  # Job 1 should still be 'new'
-        assert rows[1][0] == "shortlist"  # Job 2 should still be 'shortlist'
+        assert rows[0][0] == JobDbStatus.NEW  # Job 1 should still be 'new'
+        assert rows[1][0] == JobDbStatus.SHORTLIST  # Job 2 should still be 'shortlist'
 
     def test_database_connection_cleanup_on_success(self, temp_db):
         """Verify database connection is properly closed after success."""
@@ -256,9 +257,9 @@ class TestCheckpointTask4:
         """
         # Prepare updates
         updates = [
-            {"id": 1, "status": "shortlist"},
-            {"id": 2, "status": "reviewed"},
-            {"id": 999, "status": "new"},  # Non-existent job
+            {"id": 1, "status": JobDbStatus.SHORTLIST},
+            {"id": 2, "status": JobDbStatus.REVIEWED},
+            {"id": 999, "status": JobDbStatus.NEW},  # Non-existent job
         ]
 
         # Step 1: Validate batch size
@@ -312,8 +313,8 @@ class TestCheckpointTask4:
         rows = cursor.fetchall()
         conn.close()
 
-        assert rows[0][0] == "new"  # Job 1 should still be 'new'
-        assert rows[1][0] == "shortlist"  # Job 2 should still be 'shortlist'
+        assert rows[0][0] == JobDbStatus.NEW  # Job 1 should still be 'new'
+        assert rows[1][0] == JobDbStatus.SHORTLIST  # Job 2 should still be 'shortlist'
 
         # Verify validation errors were collected
         assert len(validation_errors) == 1
@@ -326,7 +327,10 @@ class TestCheckpointTask4:
         This simulates a successful workflow where all validations pass.
         """
         # Prepare valid updates
-        updates = [{"id": 1, "status": "shortlist"}, {"id": 3, "status": "reviewed"}]
+        updates = [
+            {"id": 1, "status": JobDbStatus.SHORTLIST},
+            {"id": 3, "status": JobDbStatus.REVIEWED},
+        ]
 
         # Validate batch size
         validate_batch_size(updates)
@@ -376,10 +380,10 @@ class TestCheckpointTask4:
 
         assert len(rows) == 2
         assert rows[0]["id"] == 1
-        assert rows[0]["status"] == "shortlist"
+        assert rows[0]["status"] == JobDbStatus.SHORTLIST
         assert rows[0]["updated_at"] == timestamp
         assert rows[1]["id"] == 3
-        assert rows[1]["status"] == "reviewed"
+        assert rows[1]["status"] == JobDbStatus.REVIEWED
         assert rows[1]["updated_at"] == timestamp
 
 

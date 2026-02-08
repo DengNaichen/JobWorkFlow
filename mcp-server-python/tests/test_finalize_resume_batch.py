@@ -5,15 +5,17 @@ Tests verify the complete tool workflow including validation, artifact checks,
 DB updates, tracker synchronization, compensation fallback, and dry-run mode.
 """
 
-from pathlib import Path
-import pytest
 import sqlite3
+from pathlib import Path
+
+import pytest
+from models.errors import ToolError
+from models.status import JobDbStatus, JobTrackerStatus
 from tools.finalize_resume_batch import (
     finalize_resume_batch,
     generate_run_id,
     sanitize_error_message,
 )
-from models.errors import ToolError
 
 
 class TestGenerateRunId:
@@ -518,7 +520,7 @@ Test job
         row = cursor.fetchone()
         conn.close()
 
-        assert row["status"] == "resume_written"
+        assert row["status"] == JobDbStatus.RESUME_WRITTEN
         assert row["resume_pdf_path"] == pdf_path
         assert row["resume_written_at"] is not None
         assert row["run_id"] == result["run_id"]
@@ -527,7 +529,7 @@ Test job
 
         # Verify tracker was updated
         tracker_content = Path(tracker_path).read_text()
-        assert "status: Resume Written" in tracker_content
+        assert f"status: {JobTrackerStatus.RESUME_WRITTEN.value}" in tracker_content
         assert "company: Amazon" in tracker_content  # Other fields preserved
 
     def test_nonexistent_job_id_fails_without_mutating_tracker(self, test_db, valid_tracker):
@@ -550,7 +552,7 @@ Test job
         conn.close()
 
         assert missing is None
-        assert original["status"] == "reviewed"
+        assert original["status"] == JobDbStatus.REVIEWED
         assert original["attempt_count"] == 0
 
         tracker_content = Path(tracker_path).read_text()
@@ -670,7 +672,7 @@ Test job
         row = cursor.fetchone()
         conn.close()
 
-        assert row["status"] == "reviewed"  # Unchanged
+        assert row["status"] == JobDbStatus.REVIEWED  # Unchanged
         assert row["resume_pdf_path"] is None  # Unchanged
         assert row["resume_written_at"] is None  # Unchanged
         assert row["run_id"] is None  # Unchanged
@@ -880,12 +882,12 @@ class TestFinalizeResumeBatchCompensation:
         ).fetchone()
         conn.close()
 
-        assert row1["status"] == "reviewed"
+        assert row1["status"] == JobDbStatus.REVIEWED
         assert row1["last_error"] is not None
         assert "Tracker sync failed" in row1["last_error"]
         assert row1["attempt_count"] == 1
 
-        assert row2["status"] == "resume_written"
+        assert row2["status"] == JobDbStatus.RESUME_WRITTEN
         assert row2["last_error"] is None
         assert row2["attempt_count"] == 1
 

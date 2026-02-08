@@ -5,19 +5,16 @@ Provides schema bootstrap and insert/dedupe operations for ingesting
 scraped job records into the jobs database with idempotent semantics.
 """
 
-import sqlite3
 import os
+import sqlite3
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from models.errors import create_db_error, create_validation_error
-
+from models.status import JobDbStatus
 
 # Default database path relative to repository root
 DEFAULT_DB_PATH = "data/capture/jobs.db"
-
-# Allowed status values for job records (Requirement 8.2)
-ALLOWED_STATUSES = {"new", "shortlist", "reviewed", "reject", "resume_written", "applied"}
 
 
 def resolve_db_path(db_path: Optional[str] = None) -> Path:
@@ -102,7 +99,8 @@ def bootstrap_schema(conn: sqlite3.Connection) -> None:
     """
     try:
         # Create jobs table if it doesn't exist
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS jobs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 job_id TEXT,
@@ -112,7 +110,9 @@ def bootstrap_schema(conn: sqlite3.Connection) -> None:
                 url TEXT NOT NULL UNIQUE,
                 location TEXT,
                 source TEXT,
-                status TEXT NOT NULL DEFAULT 'new',
+                status TEXT NOT NULL DEFAULT '"""
+            + JobDbStatus.NEW.value
+            + """',
                 captured_at TEXT,
                 payload_json TEXT NOT NULL,
                 created_at TEXT NOT NULL,
@@ -123,7 +123,8 @@ def bootstrap_schema(conn: sqlite3.Connection) -> None:
                 attempt_count INTEGER DEFAULT 0,
                 last_error TEXT
             )
-        """)
+        """
+        )
 
         # Create status index if it doesn't exist
         conn.execute("""
@@ -229,7 +230,9 @@ class JobsIngestWriter:
         return False
 
     def insert_cleaned_records(
-        self, records: list[Dict[str, Any]], status: str = "new"
+        self,
+        records: list[Dict[str, Any]],
+        status: str = JobDbStatus.NEW,
     ) -> Tuple[int, int]:
         """
         Insert cleaned records with deduplication by URL.
@@ -272,8 +275,10 @@ class JobsIngestWriter:
                 f"Invalid status: '{status}' contains leading or trailing whitespace"
             )
 
-        if status not in ALLOWED_STATUSES:
-            allowed_list = ", ".join(sorted(ALLOWED_STATUSES))
+        try:
+            JobDbStatus(status)
+        except ValueError:
+            allowed_list = ", ".join(sorted(s.value for s in JobDbStatus))
             raise create_validation_error(
                 f"Invalid status value: '{status}'. Allowed values are: {allowed_list}"
             )

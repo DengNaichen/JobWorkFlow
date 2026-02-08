@@ -5,19 +5,19 @@ Orchestrates validation, parsing, transition checks, guardrails, and write flow
 to provide a safe tracker status update tool with Resume Written guardrails.
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
+from models.errors import ToolError, create_internal_error, create_validation_error
+from models.status import JobTrackerStatus
 from pydantic import ValidationError
-
 from schemas.update_tracker_status import UpdateTrackerStatusRequest, UpdateTrackerStatusResponse
+from utils.artifact_paths import ArtifactPathError, resolve_artifact_paths
+from utils.finalize_validators import validate_resume_written_guardrails
 from utils.pydantic_error_mapper import map_pydantic_validation_error
-from utils.validation import validate_update_tracker_status_parameters
 from utils.tracker_parser import parse_tracker_with_error_mapping
 from utils.tracker_policy import validate_transition
-from utils.artifact_paths import resolve_artifact_paths, ArtifactPathError
-from utils.finalize_validators import validate_resume_written_guardrails
 from utils.tracker_sync import update_tracker_status as write_tracker_status
-from models.errors import ToolError, create_validation_error, create_internal_error
+from utils.validation import validate_update_tracker_status_parameters
 
 
 def _build_response(
@@ -206,7 +206,7 @@ def update_tracker_status(args: Dict[str, Any]) -> Dict[str, Any]:
 
         # Step 5: If target_status='Resume Written', perform artifact guardrails
         guardrail_check_passed = None
-        if target_status == "Resume Written":
+        if target_status == JobTrackerStatus.RESUME_WRITTEN:
             # Step 5a: Resolve artifact paths (Requirements 6.1-6.5)
             resume_path_raw = tracker_data["frontmatter"].get("resume_path")
 

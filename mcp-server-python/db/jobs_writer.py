@@ -5,16 +5,16 @@ Provides write-only access to the jobs database with transaction management
 and atomic batch update semantics.
 """
 
-import sqlite3
 import os
+import sqlite3
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 from models.errors import (
-    create_db_not_found_error,
     create_db_error,
+    create_db_not_found_error,
 )
-
+from models.status import JobDbStatus
 
 # Default database path relative to repository root
 DEFAULT_DB_PATH = "data/capture/jobs.db"
@@ -342,7 +342,7 @@ class JobsWriter:
             # Execute parameterized UPDATE with all finalization fields
             query = """
                 UPDATE jobs
-                SET status = 'resume_written',
+                SET status = ?,
                     resume_pdf_path = ?,
                     resume_written_at = ?,
                     run_id = ?,
@@ -352,7 +352,8 @@ class JobsWriter:
                 WHERE id = ?
             """
             cursor = self.conn.execute(
-                query, (resume_pdf_path, timestamp, run_id, timestamp, job_id)
+                query,
+                (JobDbStatus.RESUME_WRITTEN, resume_pdf_path, timestamp, run_id, timestamp, job_id),
             )
 
             # Missing target job is a per-item finalization failure.
@@ -394,12 +395,12 @@ class JobsWriter:
             # Execute parameterized UPDATE for fallback compensation
             query = """
                 UPDATE jobs
-                SET status = 'reviewed',
+                SET status = ?,
                     last_error = ?,
                     updated_at = ?
                 WHERE id = ?
             """
-            cursor = self.conn.execute(query, (last_error, timestamp, job_id))
+            cursor = self.conn.execute(query, (JobDbStatus.REVIEWED, last_error, timestamp, job_id))
 
             if cursor.rowcount == 0:
                 raise create_db_error(

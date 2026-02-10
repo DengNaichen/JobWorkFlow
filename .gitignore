@@ -66,4 +66,4 @@ data/templates/full_resume.md
 data/templates/resume_skeleton.tex
 trackers/*.md
 !trackers/template.md
-!trackers/Job Application.md
+!trackers/job-application.md

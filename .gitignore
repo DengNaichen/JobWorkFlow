@@ -35,6 +35,9 @@ htmlcov/
 .obsidian/workspace.json
 .obsidian/cache
 
+# Local editor settings
+.vscode/
+
 # macOS clutter
 .DS_Store
 

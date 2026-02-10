@@ -394,7 +394,7 @@ Test job
 \documentclass{article}
 \begin{document}
 \section{Experience}
-PROJECT-AI-placeholder content here
+WORK-BULLET-POINT-placeholder content here
 \end{document}
 """
         tex_path.write_text(tex_content)

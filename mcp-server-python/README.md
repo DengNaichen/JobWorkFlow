@@ -120,6 +120,12 @@ The server supports configuration via environment variables:
 |----------|-------------|---------|
 | `JOBWORKFLOW_ROOT` | Root directory for JobWorkFlow data | Repository root |
 | `JOBWORKFLOW_DB` | Database file path | `data/capture/jobs.db` |
+| `JOBWORKFLOW_BULK_READ_LIMIT` | Default page size for `bulk_read_new_jobs` | `50` |
+| `JOBWORKFLOW_TRACKERS_DIR` | Default trackers directory for `initialize_shortlist_trackers` | `trackers` |
+| `JOBWORKFLOW_FULL_RESUME_PATH` | Default full resume path for `career_tailor` | `data/templates/full_resume.md` |
+| `JOBWORKFLOW_RESUME_TEMPLATE_PATH` | Default resume template path for `career_tailor` | `data/templates/resume_skeleton.tex` |
+| `JOBWORKFLOW_APPLICATIONS_DIR` | Default applications workspace root for `career_tailor` | `data/applications` |
+| `JOBWORKFLOW_PDFLATEX_CMD` | Default LaTeX command for `career_tailor` | `pdflatex` |
 | `JOBWORKFLOW_LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | `INFO` |
 | `JOBWORKFLOW_LOG_FILE` | Log file path (enables file logging) | None (stderr only) |
 

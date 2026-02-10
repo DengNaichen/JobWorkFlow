@@ -5,7 +5,6 @@ Provides write-only access to the jobs database with transaction management
 and atomic batch update semantics.
 """
 
-import os
 import sqlite3
 from pathlib import Path
 from typing import List, Optional
@@ -15,9 +14,7 @@ from models.errors import (
     create_db_not_found_error,
 )
 from models.status import JobDbStatus
-
-# Default database path relative to repository root
-DEFAULT_DB_PATH = "data/capture/jobs.db"
+from utils.path_resolution import resolve_db_path as resolve_db_path_shared
 
 
 def resolve_db_path(db_path: Optional[str] = None) -> Path:
@@ -36,32 +33,7 @@ def resolve_db_path(db_path: Optional[str] = None) -> Path:
     Returns:
         Resolved absolute Path to the database
     """
-    # Use provided path first
-    if db_path is not None:
-        path_str = db_path
-    else:
-        # Then explicit env override
-        db_env = os.getenv("JOBWORKFLOW_DB")
-        if db_env:
-            path_str = db_env
-        else:
-            # Then JOBWORKFLOW_ROOT fallback
-            root_env = os.getenv("JOBWORKFLOW_ROOT")
-            if root_env:
-                return Path(root_env) / "data" / "capture" / "jobs.db"
-            # Final default
-            path_str = DEFAULT_DB_PATH
-
-    path = Path(path_str)
-
-    # If relative, resolve from repository root
-    if not path.is_absolute():
-        # Find repository root (parent of mcp-server-python directory)
-        current_file = Path(__file__).resolve()
-        repo_root = current_file.parents[2]  # db/ -> mcp-server-python/ -> repo/
-        path = repo_root / path
-
-    return path
+    return resolve_db_path_shared(db_path)
 
 
 class JobsWriter:

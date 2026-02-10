@@ -8,17 +8,40 @@ Provides centralized configuration management with support for:
 - Logging configuration
 """
 
-import os
 import logging
+import os
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
+
+from dotenv import load_dotenv
+
+# Load environment variables from .env file at project root
+# config.py is in mcp-server-python/, so .env is in parent directory
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=_env_path)
+
+
+def _parse_str_list(env_var: str, default: List[str]) -> List[str]:
+    """Parse a comma-separated string from env into a list of strings."""
+    value = os.getenv(env_var)
+    if value is None or not value.strip():
+        return default
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _parse_bool(env_var: str, default: bool) -> bool:
+    """Parse a boolean value from an environment variable."""
+    value = os.getenv(env_var)
+    if value is None:
+        return default
+    return value.lower() in ("true", "1", "t", "y", "yes")
 
 
 class Config:
     """
     Configuration class for MCP server settings.
 
-    Supports configuration via environment variables with sensible defaults.
+    Supports configuration via environment variables (and .env file) with sensible defaults.
     All paths are resolved relative to the repository root.
     """
 
@@ -36,6 +59,44 @@ class Config:
 
         # Server configuration
         self.server_name = os.getenv("JOBWORKFLOW_SERVER_NAME", "jobworkflow-mcp-server")
+
+        # Scrape tool configuration
+        self.scrape_terms = _parse_str_list(
+            "JOBWORKFLOW_SCRAPE_TERMS", ["ai engineer", "backend engineer", "machine learning"]
+        )
+        self.scrape_location = os.getenv("JOBWORKFLOW_SCRAPE_LOCATION", "Ontario, Canada")
+        self.scrape_sites = _parse_str_list("JOBWORKFLOW_SCRAPE_SITES", ["linkedin"])
+        self.scrape_results_wanted = int(os.getenv("JOBWORKFLOW_SCRAPE_RESULTS_WANTED", "20"))
+        self.scrape_hours_old = int(os.getenv("JOBWORKFLOW_SCRAPE_HOURS_OLD", "2"))
+        self.scrape_require_description = _parse_bool(
+            "JOBWORKFLOW_SCRAPE_REQUIRE_DESCRIPTION", True
+        )
+        self.scrape_preflight_host = os.getenv(
+            "JOBWORKFLOW_SCRAPE_PREFLIGHT_HOST", "www.linkedin.com"
+        )
+        self.scrape_retry_count = int(os.getenv("JOBWORKFLOW_SCRAPE_RETRY_COUNT", "3"))
+        self.scrape_retry_sleep_seconds = float(
+            os.getenv("JOBWORKFLOW_SCRAPE_RETRY_SLEEP_SECONDS", "30")
+        )
+        self.scrape_retry_backoff = float(os.getenv("JOBWORKFLOW_SCRAPE_RETRY_BACKOFF", "2"))
+        self.scrape_save_capture_json = _parse_bool("JOBWORKFLOW_SCRAPE_SAVE_CAPTURE_JSON", True)
+        self.scrape_capture_dir = os.getenv("JOBWORKFLOW_SCRAPE_CAPTURE_DIR", "data/capture")
+
+        # bulk_read_new_jobs defaults
+        self.bulk_read_limit = int(os.getenv("JOBWORKFLOW_BULK_READ_LIMIT", "50"))
+
+        # initialize_shortlist_trackers defaults
+        self.trackers_dir = os.getenv("JOBWORKFLOW_TRACKERS_DIR", "trackers")
+
+        # career_tailor defaults
+        self.full_resume_path = os.getenv(
+            "JOBWORKFLOW_FULL_RESUME_PATH", "data/templates/full_resume.md"
+        )
+        self.resume_template_path = os.getenv(
+            "JOBWORKFLOW_RESUME_TEMPLATE_PATH", "data/templates/resume_skeleton.tex"
+        )
+        self.applications_dir = os.getenv("JOBWORKFLOW_APPLICATIONS_DIR", "data/applications")
+        self.pdflatex_cmd = os.getenv("JOBWORKFLOW_PDFLATEX_CMD", "pdflatex")
 
     def _find_repo_root(self) -> Path:
         """

@@ -525,25 +525,6 @@ class TestMaterializeResumeTex:
         assert action == "created"
         assert target_path.read_text(encoding="utf-8") == template_content
 
-    def test_uses_default_template_path(self, tmp_path, monkeypatch):
-        """Test that materialize_resume_tex uses default template path."""
-        # Change to tmp_path and create default template location
-        monkeypatch.chdir(tmp_path)
-        default_template_path = tmp_path / "data" / "templates" / "resume_skeleton_example.tex"
-        default_template_path.parent.mkdir(parents=True, exist_ok=True)
-        template_content = r"\documentclass{article}\begin{document}Default Template\end{document}"
-        default_template_path.write_text(template_content)
-
-        # Target path
-        target_path = tmp_path / "resume" / "resume.tex"
-
-        # Materialize resume.tex using default template
-        action = materialize_resume_tex(target_path=str(target_path), force=False)
-
-        # Verify default template was used
-        assert action == "created"
-        assert target_path.read_text() == template_content
-
     def test_action_matrix_for_all_scenarios(self, tmp_path):
         """Test complete action matrix for materialize_resume_tex."""
         # Create a template file

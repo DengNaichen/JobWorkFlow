@@ -1,4 +1,0 @@
-interface:
-  display_name: "Career Tailor Finalize"
-  short_description: "Generate resume artifacts and finalize status sync"
-  default_prompt: "Use $career-tailor-finalize to process shortlist trackers, generate resume artifacts, and finalize only successful items."

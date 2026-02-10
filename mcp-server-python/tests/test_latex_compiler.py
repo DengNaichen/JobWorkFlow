@@ -37,7 +37,7 @@ class TestCompileResumePdf:
 \\documentclass{article}
 \\begin{document}
 \\section{Projects}
-PROJECT-AI-DESCRIPTION-HERE
+PROJECT-BULLET-POINT-1
 \\end{document}
 """)
 
@@ -48,7 +48,7 @@ PROJECT-AI-DESCRIPTION-HERE
         error = exc_info.value
         assert error.code == ErrorCode.VALIDATION_ERROR
         assert "placeholder tokens" in error.message
-        assert "PROJECT-AI-" in error.message
+        assert "BULLET-POINT" in error.message
 
         # Verify PDF was NOT created (compile was skipped)
         pdf_path = tmp_path / "resume.pdf"
@@ -61,8 +61,8 @@ PROJECT-AI-DESCRIPTION-HERE
 \\documentclass{article}
 \\begin{document}
 \\section{Projects}
-PROJECT-AI-DESCRIPTION
-PROJECT-BE-DESCRIPTION
+PROJECT-BULLET-POINT-1
+PROJECT-BULLET-POINT-2
 \\section{Experience}
 WORK-BULLET-POINT-PLACEHOLDER
 \\end{document}
@@ -74,10 +74,7 @@ WORK-BULLET-POINT-PLACEHOLDER
         error = exc_info.value
         assert error.code == ErrorCode.VALIDATION_ERROR
         assert "placeholder tokens" in error.message
-        # Should mention at least one placeholder
-        assert any(
-            token in error.message for token in ["PROJECT-AI-", "PROJECT-BE-", "WORK-BULLET-POINT-"]
-        )
+        assert "BULLET-POINT" in error.message
 
     @patch("subprocess.run")
     def test_successful_compilation(self, mock_run, tmp_path):

@@ -105,7 +105,7 @@ class TestFinalizeValidatorsIntegration:
 \\documentclass{article}
 \\begin{document}
 \\section{Projects}
-PROJECT-AI-DESCRIPTION-PLACEHOLDER
+PROJECT-BULLET-POINT-1
 \\end{document}
 """)
 
@@ -119,7 +119,7 @@ PROJECT-AI-DESCRIPTION-PLACEHOLDER
         is_valid, error = validate_resume_written_guardrails(resolved_pdf, resolved_tex)
 
         assert is_valid is False
-        assert "PROJECT-AI-" in error
+        assert "BULLET-POINT" in error
         assert "placeholder tokens" in error
 
     def test_complete_flow_fails_with_zero_byte_pdf(self, tmp_path):

@@ -5,19 +5,20 @@ Tests validation of limit, db_path, and cursor parameters.
 """
 
 import pytest
+from models.errors import ErrorCode, ToolError
+from models.status import JobDbStatus, JobTrackerStatus
 from utils.validation import (
-    validate_limit,
-    validate_db_path,
-    validate_cursor,
-    validate_all_parameters,
-    validate_status,
-    validate_job_id,
-    validate_batch_size,
-    validate_unique_job_ids,
     DEFAULT_LIMIT,
     MIN_LIMIT,
+    validate_all_parameters,
+    validate_batch_size,
+    validate_cursor,
+    validate_db_path,
+    validate_job_id,
+    validate_limit,
+    validate_status,
+    validate_unique_job_ids,
 )
-from models.errors import ToolError, ErrorCode
 
 
 class TestValidateLimit:
@@ -355,9 +356,8 @@ class TestValidateStatus:
 
     def test_valid_statuses(self):
         """Test that all valid status values are accepted."""
-        valid_statuses = ["new", "shortlist", "reviewed", "reject", "resume_written", "applied"]
-        for status in valid_statuses:
-            result = validate_status(status)
+        for status in JobDbStatus:
+            result = validate_status(status.value)
             assert result == status
 
     def test_invalid_status_value(self):
@@ -472,12 +472,8 @@ class TestValidateStatus:
 
         error = exc_info.value
         # Check that error message includes the allowed values
-        assert "new" in error.message
-        assert "shortlist" in error.message
-        assert "reviewed" in error.message
-        assert "reject" in error.message
-        assert "resume_written" in error.message
-        assert "applied" in error.message
+        for status in JobDbStatus:
+            assert status.value in error.message
 
 
 class TestValidateJobId:
@@ -840,6 +836,7 @@ class TestGetCurrentUtcTimestamp:
     def test_timestamp_format_matches_iso8601(self):
         """Test that timestamp matches ISO 8601 format with milliseconds and Z suffix."""
         import re
+
         from utils.validation import get_current_utc_timestamp
 
         timestamp = get_current_utc_timestamp()
@@ -874,7 +871,8 @@ class TestGetCurrentUtcTimestamp:
 
     def test_timestamp_is_current(self):
         """Test that timestamp represents current time (within reasonable bounds)."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
+
         from utils.validation import get_current_utc_timestamp
 
         before = datetime.now(timezone.utc)
@@ -920,6 +918,7 @@ class TestGetCurrentUtcTimestamp:
     def test_multiple_calls_produce_valid_timestamps(self):
         """Test that multiple calls all produce valid timestamps."""
         import re
+
         from utils.validation import get_current_utc_timestamp
 
         pattern = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$"
@@ -933,6 +932,7 @@ class TestGetCurrentUtcTimestamp:
     def test_timestamp_parseable_by_datetime(self):
         """Test that timestamp can be parsed back to datetime object."""
         from datetime import datetime
+
         from utils.validation import get_current_utc_timestamp
 
         timestamp = get_current_utc_timestamp()
@@ -1037,17 +1037,8 @@ class TestValidateTrackerStatus:
         """Test that all valid tracker status values are accepted."""
         from utils.validation import validate_tracker_status
 
-        valid_statuses = [
-            "Reviewed",
-            "Resume Written",
-            "Applied",
-            "Interview",
-            "Offer",
-            "Rejected",
-            "Ghosted",
-        ]
-        for status in valid_statuses:
-            result = validate_tracker_status(status)
+        for status in JobTrackerStatus:
+            result = validate_tracker_status(status.value)
             assert result == status
 
     def test_invalid_tracker_status_value(self):
@@ -1151,13 +1142,8 @@ class TestValidateTrackerStatus:
 
         error = exc_info.value
         # Check that error message includes the allowed values
-        assert "Reviewed" in error.message
-        assert "Resume Written" in error.message
-        assert "Applied" in error.message
-        assert "Interview" in error.message
-        assert "Offer" in error.message
-        assert "Rejected" in error.message
-        assert "Ghosted" in error.message
+        for status in JobTrackerStatus:
+            assert status.value in error.message
 
 
 class TestValidateUpdateTrackerStatusParameters:
@@ -1301,18 +1287,9 @@ class TestValidateUpdateTrackerStatusParameters:
         """Test that all valid tracker statuses are accepted."""
         from utils.validation import validate_update_tracker_status_parameters
 
-        valid_statuses = [
-            "Reviewed",
-            "Resume Written",
-            "Applied",
-            "Interview",
-            "Offer",
-            "Rejected",
-            "Ghosted",
-        ]
-        for status in valid_statuses:
+        for status in JobTrackerStatus:
             tracker_path, target_status, dry_run, force = validate_update_tracker_status_parameters(
-                tracker_path="trackers/test.md", target_status=status
+                tracker_path="trackers/test.md", target_status=status.value
             )
             assert target_status == status
 

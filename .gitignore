@@ -35,6 +35,9 @@ htmlcov/
 .obsidian/workspace.json
 .obsidian/cache
 
+# Local editor settings
+.vscode/
+
 # macOS clutter
 .DS_Store
 
@@ -66,4 +69,4 @@ data/templates/full_resume.md
 data/templates/resume_skeleton.tex
 trackers/*.md
 !trackers/template.md
-!trackers/Job Application.md
+!trackers/job-application.md

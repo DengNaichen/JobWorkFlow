@@ -6,19 +6,16 @@ and deterministic query execution.
 """
 
 import sqlite3
-import os
-from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from models.errors import (
-    create_db_not_found_error,
     create_db_error,
+    create_db_not_found_error,
 )
-
-
-# Default database path relative to repository root
-DEFAULT_DB_PATH = "data/capture/jobs.db"
+from models.status import JobDbStatus
+from utils.path_resolution import resolve_db_path as resolve_db_path_shared
 
 
 def resolve_db_path(db_path: Optional[str] = None) -> Path:
@@ -37,32 +34,7 @@ def resolve_db_path(db_path: Optional[str] = None) -> Path:
     Returns:
         Resolved absolute Path to the database
     """
-    # Use provided path first
-    if db_path is not None:
-        path_str = db_path
-    else:
-        # Then explicit env override
-        db_env = os.getenv("JOBWORKFLOW_DB")
-        if db_env:
-            path_str = db_env
-        else:
-            # Then JOBWORKFLOW_ROOT fallback
-            root_env = os.getenv("JOBWORKFLOW_ROOT")
-            if root_env:
-                return Path(root_env) / "data" / "capture" / "jobs.db"
-            # Final default
-            path_str = DEFAULT_DB_PATH
-
-    path = Path(path_str)
-
-    # If relative, resolve from repository root
-    if not path.is_absolute():
-        # Find repository root (parent of mcp-server-python directory)
-        current_file = Path(__file__).resolve()
-        repo_root = current_file.parents[2]  # db/ -> mcp-server-python/ -> repo/
-        path = repo_root / path
-
-    return path
+    return resolve_db_path_shared(db_path)
 
 
 @contextmanager
@@ -160,11 +132,11 @@ def query_new_jobs(
                     status,
                     captured_at
                 FROM jobs
-                WHERE status = 'new'
+                WHERE status = ?
                 ORDER BY captured_at DESC, id DESC
                 LIMIT ?
             """
-            params = (limit + 1,)
+            params = (JobDbStatus.NEW, limit + 1)
         else:
             # Subsequent page - apply cursor boundary
             cursor_ts, cursor_id = cursor
@@ -181,7 +153,7 @@ def query_new_jobs(
                     status,
                     captured_at
                 FROM jobs
-                WHERE status = 'new'
+                WHERE status = ?
                   AND (
                     captured_at < ?
                     OR (captured_at = ? AND id < ?)
@@ -189,7 +161,7 @@ def query_new_jobs(
                 ORDER BY captured_at DESC, id DESC
                 LIMIT ?
             """
-            params = (cursor_ts, cursor_ts, cursor_id, limit + 1)
+            params = (JobDbStatus.NEW, cursor_ts, cursor_ts, cursor_id, limit + 1)
 
         # Execute query
         cursor_obj = conn.execute(query, params)
@@ -262,11 +234,11 @@ def query_shortlist_jobs(conn: sqlite3.Connection, limit: int) -> List[Dict[str,
                 captured_at,
                 status
             FROM jobs
-            WHERE status = 'shortlist'
+            WHERE status = ?
             ORDER BY captured_at DESC, id DESC
             LIMIT ?
         """
-        params = (limit,)
+        params = (JobDbStatus.SHORTLIST, limit)
 
         # Execute query
         cursor_obj = conn.execute(query, params)

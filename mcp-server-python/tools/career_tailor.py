@@ -18,6 +18,7 @@ import re
 
 from pydantic import ValidationError
 
+from config import config
 from schemas.career_tailor import CareerTailorRequest, CareerTailorResponse
 from utils.pydantic_error_mapper import map_pydantic_validation_error
 from utils.validation import validate_career_tailor_batch_parameters
@@ -30,10 +31,10 @@ from models.errors import ToolError, ErrorCode, create_internal_error
 
 
 # Default paths
-DEFAULT_FULL_RESUME_PATH = "data/templates/full_resume_example.md"
-DEFAULT_RESUME_TEMPLATE_PATH = "data/templates/resume_skeleton_example.tex"
-DEFAULT_APPLICATIONS_DIR = "data/applications"
-DEFAULT_PDFLATEX_CMD = "pdflatex"
+DEFAULT_FULL_RESUME_PATH = config.full_resume_path
+DEFAULT_RESUME_TEMPLATE_PATH = config.resume_template_path
+DEFAULT_APPLICATIONS_DIR = config.applications_dir
+DEFAULT_PDFLATEX_CMD = config.pdflatex_cmd
 
 
 def generate_run_id(prefix: str = "tailor") -> str:

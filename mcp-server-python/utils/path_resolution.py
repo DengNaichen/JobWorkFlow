@@ -11,6 +11,10 @@ import os
 from pathlib import Path
 from typing import Union
 
+from config import config
+
+DEFAULT_DB_RELATIVE_PATH = Path("data/capture/jobs.db")
+
 
 def get_repo_root() -> Path:
     """
@@ -45,5 +49,29 @@ def resolve_trackers_dir(trackers_dir: str | None) -> Path:
     Default directory is <repo_root>/trackers.
     """
     if trackers_dir is None:
-        return get_repo_root() / "trackers"
+        return resolve_repo_relative_path(config.trackers_dir)
     return resolve_repo_relative_path(trackers_dir)
+
+
+def resolve_db_path(db_path: str | None = None) -> Path:
+    """
+    Resolve database path with consistent precedence across DB tools.
+
+    Resolution order:
+    1. Explicit `db_path` argument
+    2. `JOBWORKFLOW_DB`
+    3. `JOBWORKFLOW_ROOT/data/capture/jobs.db`
+    4. `<repo_root>/data/capture/jobs.db`
+    """
+    if db_path is not None:
+        return resolve_repo_relative_path(db_path)
+
+    db_env = os.getenv("JOBWORKFLOW_DB")
+    if db_env:
+        return resolve_repo_relative_path(db_env)
+
+    root_env = os.getenv("JOBWORKFLOW_ROOT")
+    if root_env:
+        return Path(root_env).expanduser().resolve() / DEFAULT_DB_RELATIVE_PATH
+
+    return resolve_repo_relative_path(DEFAULT_DB_RELATIVE_PATH)

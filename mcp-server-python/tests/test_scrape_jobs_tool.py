@@ -643,24 +643,6 @@ class TestScrapeJobs:
         assert response["results"][0]["inserted_count"] == 0
         assert response["results"][0]["duplicate_count"] == 0
 
-    def test_uses_default_parameters(self):
-        """Test that default parameters are used when not provided."""
-        raw_records = []
-
-        with patch("tools.scrape_jobs.scrape_jobs_for_term", return_value=raw_records):
-            with patch("tools.scrape_jobs.JobsIngestWriter") as mock_writer_class:
-                mock_writer = MagicMock()
-                mock_writer.insert_cleaned_records.return_value = (0, 0)
-                mock_writer_class.return_value.__enter__.return_value = mock_writer
-
-                response = scrape_jobs()  # No parameters
-
-        # Should use default terms
-        assert len(response["results"]) == 3
-        assert response["results"][0]["term"] == "ai engineer"
-        assert response["results"][1]["term"] == "backend engineer"
-        assert response["results"][2]["term"] == "machine learning"
-
     def test_unknown_parameter_rejected(self):
         """Test that unknown parameters are rejected."""
         with pytest.raises(ToolError) as exc_info:

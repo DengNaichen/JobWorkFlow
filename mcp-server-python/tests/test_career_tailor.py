@@ -5,17 +5,19 @@ This module tests the batch orchestration logic for the career_tailor tool,
 including item processing, error handling, and successful_items generation.
 """
 
-import pytest
 import sqlite3
 from unittest.mock import patch
+
+import pytest
+from models.errors import ErrorCode, ToolError
+from models.status import JobDbStatus
 from tools.career_tailor import (
     career_tailor,
     generate_run_id,
-    sanitize_error_message,
-    resolve_job_db_id,
     process_item_tailoring,
+    resolve_job_db_id,
+    sanitize_error_message,
 )
-from models.errors import ToolError, ErrorCode
 
 
 class TestGenerateRunId:
@@ -474,7 +476,7 @@ class TestCareerTailorTool:
         db_path = tmp_path / "jobs.db"
         conn = sqlite3.connect(str(db_path))
         conn.execute("CREATE TABLE jobs (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
-        conn.execute("INSERT INTO jobs (id, status) VALUES (1, 'shortlist')")
+        conn.execute("INSERT INTO jobs (id, status) VALUES (1, ?)", (JobDbStatus.SHORTLIST,))
         conn.commit()
         conn.close()
 
@@ -531,4 +533,4 @@ Build scalable services.
         conn = sqlite3.connect(str(db_path))
         row = conn.execute("SELECT status FROM jobs WHERE id = 1").fetchone()
         conn.close()
-        assert row[0] == "shortlist"
+        assert row[0] == JobDbStatus.SHORTLIST

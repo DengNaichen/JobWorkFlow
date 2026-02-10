@@ -6,11 +6,13 @@ Validates limit, db_path, and cursor parameters according to requirements.
 
 from datetime import datetime, timezone
 from typing import Optional, Tuple
-from models.errors import create_validation_error
 
+from config import config
+from models.errors import create_validation_error
+from models.status import JobDbStatus, JobTrackerStatus
 
 # Constants for validation
-DEFAULT_LIMIT = 50
+DEFAULT_LIMIT = config.bulk_read_limit
 MIN_LIMIT = 1
 MAX_LIMIT = 1000
 
@@ -18,20 +20,6 @@ MAX_LIMIT = 1000
 INITIALIZE_DEFAULT_LIMIT = 50
 INITIALIZE_MIN_LIMIT = 1
 INITIALIZE_MAX_LIMIT = 200
-
-# Allowed status values for job status updates
-ALLOWED_STATUSES = {"new", "shortlist", "reviewed", "reject", "resume_written", "applied"}
-
-# Allowed tracker status values for update_tracker_status tool
-ALLOWED_TRACKER_STATUSES = {
-    "Reviewed",
-    "Resume Written",
-    "Applied",
-    "Interview",
-    "Offer",
-    "Rejected",
-    "Ghosted",
-}
 
 
 def validate_limit(limit: Optional[int]) -> int:
@@ -194,9 +182,12 @@ def validate_status(status) -> str:
         )
 
     # Check against allowed statuses (case-sensitive)
-    if status not in ALLOWED_STATUSES:
+    try:
+        JobDbStatus(status)
+    except ValueError:
+        allowed = ", ".join(sorted(s.value for s in JobDbStatus))
         raise create_validation_error(
-            f"Invalid status value: '{status}'. Allowed values are: {', '.join(sorted(ALLOWED_STATUSES))}"
+            f"Invalid status value: '{status}'. Allowed values are: {allowed}"
         )
 
     return status
@@ -569,8 +560,12 @@ def validate_tracker_status(target_status) -> str:
         )
 
     # Check against allowed tracker statuses (case-sensitive, Requirement 3.3)
-    if target_status not in ALLOWED_TRACKER_STATUSES:
-        allowed_list = ", ".join(f"'{s}'" for s in sorted(ALLOWED_TRACKER_STATUSES))
+    try:
+        JobTrackerStatus(target_status)
+    except ValueError:
+        allowed_list = ", ".join(
+            f"'{s.value}'" for s in sorted(JobTrackerStatus, key=lambda s: s.value)
+        )
         raise create_validation_error(
             f"Invalid target_status value: '{target_status}'. Allowed values are: {allowed_list}"
         )
@@ -853,28 +848,16 @@ def validate_finalize_resume_batch_parameters(
 # ============================================================================
 
 # Constants for scrape_jobs validation
-DEFAULT_SCRAPE_TERMS = ["ai engineer", "backend engineer", "machine learning"]
-DEFAULT_SCRAPE_LOCATION = "Ontario, Canada"
-DEFAULT_SCRAPE_SITES = ["linkedin"]
-DEFAULT_RESULTS_WANTED = 20
 MIN_RESULTS_WANTED = 1
 MAX_RESULTS_WANTED = 200
-DEFAULT_HOURS_OLD = 2
 MIN_HOURS_OLD = 1
 MAX_HOURS_OLD = 168
-DEFAULT_REQUIRE_DESCRIPTION = True
-DEFAULT_PREFLIGHT_HOST = "www.linkedin.com"
-DEFAULT_RETRY_COUNT = 3
 MIN_RETRY_COUNT = 1
 MAX_RETRY_COUNT = 10
-DEFAULT_RETRY_SLEEP_SECONDS = 30
 MIN_RETRY_SLEEP_SECONDS = 0
 MAX_RETRY_SLEEP_SECONDS = 300
-DEFAULT_RETRY_BACKOFF = 2
 MIN_RETRY_BACKOFF = 1
 MAX_RETRY_BACKOFF = 10
-DEFAULT_SAVE_CAPTURE_JSON = True
-DEFAULT_CAPTURE_DIR = "data/capture"
 
 
 def validate_scrape_terms(terms: Optional[list]) -> list:
@@ -885,16 +868,16 @@ def validate_scrape_terms(terms: Optional[list]) -> list:
         terms: The search terms list (None for default)
 
     Returns:
-        Validated terms list (default: ["ai engineer", "backend engineer", "machine learning"])
+        Validated terms list
 
     Raises:
         ToolError: If terms is invalid
 
     Requirements: 1.1, 1.2, 1.3
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if terms is None:
-        return DEFAULT_SCRAPE_TERMS
+        return config.scrape_terms
 
     # Check type
     if not isinstance(terms, list):
@@ -926,16 +909,16 @@ def validate_scrape_location(location: Optional[str]) -> str:
         location: The search location (None for default)
 
     Returns:
-        Validated location string (default: "Ontario, Canada")
+        Validated location string
 
     Raises:
         ToolError: If location is invalid
 
     Requirements: 1.1, 1.2
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if location is None:
-        return DEFAULT_SCRAPE_LOCATION
+        return config.scrape_location
 
     # Check type
     if not isinstance(location, str):
@@ -958,16 +941,16 @@ def validate_scrape_sites(sites: Optional[list]) -> list:
         sites: The source sites list (None for default)
 
     Returns:
-        Validated sites list (default: ["linkedin"])
+        Validated sites list
 
     Raises:
         ToolError: If sites is invalid
 
     Requirements: 1.1, 1.2, 3.4
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if sites is None:
-        return DEFAULT_SCRAPE_SITES
+        return config.scrape_sites
 
     # Check type
     if not isinstance(sites, list):
@@ -999,16 +982,16 @@ def validate_results_wanted(results_wanted: Optional[int]) -> int:
         results_wanted: The requested scrape results per term (None for default)
 
     Returns:
-        Validated results_wanted value (default: 20, range: 1-200)
+        Validated results_wanted value
 
     Raises:
         ToolError: If results_wanted is invalid
 
     Requirements: 1.1, 1.4, 12.2
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if results_wanted is None:
-        return DEFAULT_RESULTS_WANTED
+        return config.scrape_results_wanted
 
     # Check type (bool is a subclass of int in Python, reject explicitly)
     if isinstance(results_wanted, bool) or not isinstance(results_wanted, int):
@@ -1038,16 +1021,16 @@ def validate_hours_old(hours_old: Optional[int]) -> int:
         hours_old: The recency window in hours (None for default)
 
     Returns:
-        Validated hours_old value (default: 2, range: 1-168)
+        Validated hours_old value
 
     Raises:
         ToolError: If hours_old is invalid
 
     Requirements: 1.1, 1.4, 12.2
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if hours_old is None:
-        return DEFAULT_HOURS_OLD
+        return config.scrape_hours_old
 
     # Check type (bool is a subclass of int in Python, reject explicitly)
     if isinstance(hours_old, bool) or not isinstance(hours_old, int):
@@ -1077,16 +1060,16 @@ def validate_require_description(require_description: Optional[bool]) -> bool:
         require_description: Whether to skip records without descriptions (None for default)
 
     Returns:
-        Validated require_description value (default: True)
+        Validated require_description value
 
     Raises:
         ToolError: If require_description is invalid
 
     Requirements: 1.1, 5.2
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if require_description is None:
-        return DEFAULT_REQUIRE_DESCRIPTION
+        return config.scrape_require_description
 
     # Check type
     if not isinstance(require_description, bool):
@@ -1105,16 +1088,16 @@ def validate_preflight_host(preflight_host: Optional[str]) -> str:
         preflight_host: The DNS preflight host (None for default)
 
     Returns:
-        Validated preflight_host string (default: "www.linkedin.com")
+        Validated preflight_host string
 
     Raises:
         ToolError: If preflight_host is invalid
 
     Requirements: 2.1, 12.2
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if preflight_host is None:
-        return DEFAULT_PREFLIGHT_HOST
+        return config.scrape_preflight_host
 
     # Check type
     if not isinstance(preflight_host, str):
@@ -1137,16 +1120,16 @@ def validate_retry_count(retry_count: Optional[int]) -> int:
         retry_count: The preflight retry count (None for default)
 
     Returns:
-        Validated retry_count value (default: 3, range: 1-10)
+        Validated retry_count value
 
     Raises:
         ToolError: If retry_count is invalid
 
     Requirements: 2.2, 12.2
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if retry_count is None:
-        return DEFAULT_RETRY_COUNT
+        return config.scrape_retry_count
 
     # Check type (bool is a subclass of int in Python, reject explicitly)
     if isinstance(retry_count, bool) or not isinstance(retry_count, int):
@@ -1176,16 +1159,16 @@ def validate_retry_sleep_seconds(retry_sleep_seconds: Optional[float]) -> float:
         retry_sleep_seconds: The base retry sleep seconds (None for default)
 
     Returns:
-        Validated retry_sleep_seconds value (default: 30, range: 0-300)
+        Validated retry_sleep_seconds value
 
     Raises:
         ToolError: If retry_sleep_seconds is invalid
 
     Requirements: 2.2, 12.2
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if retry_sleep_seconds is None:
-        return DEFAULT_RETRY_SLEEP_SECONDS
+        return config.scrape_retry_sleep_seconds
 
     # Check type (bool is a subclass of int in Python, reject explicitly)
     # Accept both int and float
@@ -1216,16 +1199,16 @@ def validate_retry_backoff(retry_backoff: Optional[float]) -> float:
         retry_backoff: The retry backoff multiplier (None for default)
 
     Returns:
-        Validated retry_backoff value (default: 2, range: 1-10)
+        Validated retry_backoff value
 
     Raises:
         ToolError: If retry_backoff is invalid
 
     Requirements: 2.2, 12.2
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if retry_backoff is None:
-        return DEFAULT_RETRY_BACKOFF
+        return config.scrape_retry_backoff
 
     # Check type (bool is a subclass of int in Python, reject explicitly)
     # Accept both int and float
@@ -1256,16 +1239,16 @@ def validate_save_capture_json(save_capture_json: Optional[bool]) -> bool:
         save_capture_json: Whether to persist per-term raw JSON capture files (None for default)
 
     Returns:
-        Validated save_capture_json value (default: True)
+        Validated save_capture_json value
 
     Raises:
         ToolError: If save_capture_json is invalid
 
     Requirements: 9.1, 9.2
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if save_capture_json is None:
-        return DEFAULT_SAVE_CAPTURE_JSON
+        return config.scrape_save_capture_json
 
     # Check type
     if not isinstance(save_capture_json, bool):
@@ -1284,16 +1267,16 @@ def validate_capture_dir(capture_dir: Optional[str]) -> str:
         capture_dir: The capture output directory (None for default)
 
     Returns:
-        Validated capture_dir string (default: "data/capture")
+        Validated capture_dir string
 
     Raises:
         ToolError: If capture_dir is invalid
 
     Requirements: 9.1
     """
-    # Use default if not provided
+    # Use default from config if not provided
     if capture_dir is None:
-        return DEFAULT_CAPTURE_DIR
+        return config.scrape_capture_dir
 
     # Check type
     if not isinstance(capture_dir, str):
@@ -1325,7 +1308,7 @@ def validate_scrape_status(status: Optional[str]) -> str:
     """
     # Use default if not provided
     if status is None:
-        return "new"
+        return JobDbStatus.NEW
 
     # Check type
     if not isinstance(status, str):
@@ -1344,9 +1327,12 @@ def validate_scrape_status(status: Optional[str]) -> str:
         )
 
     # Check against allowed statuses (case-sensitive)
-    if status not in ALLOWED_STATUSES:
+    try:
+        JobDbStatus(status)
+    except ValueError:
+        allowed = ", ".join(sorted(s.value for s in JobDbStatus))
         raise create_validation_error(
-            f"Invalid status value: '{status}'. Allowed values are: {', '.join(sorted(ALLOWED_STATUSES))}"
+            f"Invalid status value: '{status}'. Allowed values are: {allowed}"
         )
 
     return status

@@ -192,7 +192,7 @@ def resolve_write_action(file_exists: bool, force: bool) -> str:
 
 
 def materialize_resume_tex(
-    template_path: str = "data/templates/resume_skeleton_example.tex",
+    template_path: str = "data/templates/resume_skeleton.tex",
     target_path: Union[str, Path] = None,
     force: bool = False,
 ) -> str:
@@ -224,7 +224,7 @@ def materialize_resume_tex(
     Examples:
         >>> # Create new resume.tex
         >>> action = materialize_resume_tex(
-        ...     template_path="data/templates/resume_skeleton_example.tex",
+        ...     template_path="data/templates/resume_skeleton.tex",
         ...     target_path="data/applications/amazon-3629/resume/resume.tex",
         ...     force=False
         ... )

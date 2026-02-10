@@ -1,9 +1,9 @@
 """Unit tests for bulk_update_job_status Pydantic schemas."""
 
 import pytest
-from pydantic import ValidationError
-
 from models.errors import ErrorCode
+from models.status import JobDbStatus
+from pydantic import ValidationError
 from schemas.bulk_update_job_status import BulkUpdateJobStatusRequest
 from utils.pydantic_error_mapper import map_pydantic_validation_error
 
@@ -19,7 +19,7 @@ class TestBulkUpdateJobStatusRequest:
 
     def test_extra_fields_ignored_for_compatibility(self):
         model = BulkUpdateJobStatusRequest.model_validate(
-            {"updates": [{"id": 1, "status": "new"}], "unknown": "ignored"}
+            {"updates": [{"id": 1, "status": JobDbStatus.NEW}], "unknown": "ignored"}
         )
         assert len(model.updates) == 1
 

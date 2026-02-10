@@ -8,15 +8,19 @@ This module enforces tracker status transition rules:
 - Force bypass with warning for policy violations
 """
 
-from typing import Dict, Any, Optional, List
-from models.errors import create_validation_error
+from typing import Any, Dict, List, Optional
 
+from models.errors import create_validation_error
+from models.status import JobTrackerStatus
 
 # Terminal statuses that can be reached from any current status
-TERMINAL_STATUSES = {"Rejected", "Ghosted"}
+TERMINAL_STATUSES = {JobTrackerStatus.REJECTED, JobTrackerStatus.GHOSTED}
 
 # Core forward transitions: current_status -> allowed_next_status
-CORE_TRANSITIONS = {"Reviewed": "Resume Written", "Resume Written": "Applied"}
+CORE_TRANSITIONS = {
+    JobTrackerStatus.REVIEWED: JobTrackerStatus.RESUME_WRITTEN,
+    JobTrackerStatus.RESUME_WRITTEN: JobTrackerStatus.APPLIED,
+}
 
 
 class TransitionResult:
@@ -132,10 +136,17 @@ def validate_transition(
     if target_status in TERMINAL_STATUSES:
         return TransitionResult(allowed=True, is_noop=False)
 
+    # Helper to get the plain string value from an Enum member or a raw string.
+    def _status_str(s):
+        return s.value if hasattr(s, "value") else s
+
+    current_str = _status_str(current_status)
+    target_str = _status_str(target_status)
+
     # Rule 4: Policy violation handling (Requirements 4.4, 4.5)
     error_msg = (
-        f"Transition from '{current_status}' to '{target_status}' "
-        f"violates policy. Allowed transitions from '{current_status}': "
+        f"Transition from '{current_str}' to '{target_str}' "
+        f"violates policy. Allowed transitions from '{current_str}': "
     )
 
     # Build list of allowed transitions for this status
@@ -144,12 +155,14 @@ def validate_transition(
         allowed_transitions.append(CORE_TRANSITIONS[current_status])
     allowed_transitions.extend(TERMINAL_STATUSES)
 
-    error_msg += ", ".join(f"'{s}'" for s in sorted(allowed_transitions))
+    error_msg += ", ".join(
+        f"'{_status_str(s)}'" for s in sorted(allowed_transitions, key=_status_str)
+    )
 
     if force:
         # Allow with warning (Requirement 4.5)
         warning = (
-            f"Force bypass: Transition from '{current_status}' to '{target_status}' "
+            f"Force bypass: Transition from '{current_str}' to '{target_str}' "
             f"violates policy but was allowed due to force=true"
         )
         return TransitionResult(allowed=True, is_noop=False, warnings=[warning])

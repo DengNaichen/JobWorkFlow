@@ -6,18 +6,15 @@ and atomic batch update semantics.
 """
 
 import sqlite3
-import os
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 from models.errors import (
-    create_db_not_found_error,
     create_db_error,
+    create_db_not_found_error,
 )
-
-
-# Default database path relative to repository root
-DEFAULT_DB_PATH = "data/capture/jobs.db"
+from models.status import JobDbStatus
+from utils.path_resolution import resolve_db_path as resolve_db_path_shared
 
 
 def resolve_db_path(db_path: Optional[str] = None) -> Path:
@@ -36,32 +33,7 @@ def resolve_db_path(db_path: Optional[str] = None) -> Path:
     Returns:
         Resolved absolute Path to the database
     """
-    # Use provided path first
-    if db_path is not None:
-        path_str = db_path
-    else:
-        # Then explicit env override
-        db_env = os.getenv("JOBWORKFLOW_DB")
-        if db_env:
-            path_str = db_env
-        else:
-            # Then JOBWORKFLOW_ROOT fallback
-            root_env = os.getenv("JOBWORKFLOW_ROOT")
-            if root_env:
-                return Path(root_env) / "data" / "capture" / "jobs.db"
-            # Final default
-            path_str = DEFAULT_DB_PATH
-
-    path = Path(path_str)
-
-    # If relative, resolve from repository root
-    if not path.is_absolute():
-        # Find repository root (parent of mcp-server-python directory)
-        current_file = Path(__file__).resolve()
-        repo_root = current_file.parents[2]  # db/ -> mcp-server-python/ -> repo/
-        path = repo_root / path
-
-    return path
+    return resolve_db_path_shared(db_path)
 
 
 class JobsWriter:
@@ -342,7 +314,7 @@ class JobsWriter:
             # Execute parameterized UPDATE with all finalization fields
             query = """
                 UPDATE jobs
-                SET status = 'resume_written',
+                SET status = ?,
                     resume_pdf_path = ?,
                     resume_written_at = ?,
                     run_id = ?,
@@ -352,7 +324,8 @@ class JobsWriter:
                 WHERE id = ?
             """
             cursor = self.conn.execute(
-                query, (resume_pdf_path, timestamp, run_id, timestamp, job_id)
+                query,
+                (JobDbStatus.RESUME_WRITTEN, resume_pdf_path, timestamp, run_id, timestamp, job_id),
             )
 
             # Missing target job is a per-item finalization failure.
@@ -394,12 +367,12 @@ class JobsWriter:
             # Execute parameterized UPDATE for fallback compensation
             query = """
                 UPDATE jobs
-                SET status = 'reviewed',
+                SET status = ?,
                     last_error = ?,
                     updated_at = ?
                 WHERE id = ?
             """
-            cursor = self.conn.execute(query, (last_error, timestamp, job_id))
+            cursor = self.conn.execute(query, (JobDbStatus.REVIEWED, last_error, timestamp, job_id))
 
             if cursor.rowcount == 0:
                 raise create_db_error(

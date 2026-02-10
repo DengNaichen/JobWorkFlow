@@ -10,26 +10,26 @@ This tool is commit-focused:
 - Tracker status is a synchronized projection for Obsidian workflow.
 """
 
-from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
 import hashlib
 import re
-
-from pydantic import ValidationError
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from db.jobs_writer import JobsWriter
-from schemas.finalize_resume_batch import FinalizeResumeBatchRequest, FinalizeResumeBatchResponse
-from utils.validation import (
-    validate_finalize_resume_batch_parameters,
-    validate_finalize_item,
-    get_current_utc_timestamp,
-)
-from utils.tracker_parser import resolve_resume_pdf_path_from_tracker
-from utils.artifact_paths import resolve_resume_tex_path
-from utils.finalize_validators import validate_tracker_exists, validate_resume_written_guardrails
-from utils.tracker_sync import update_tracker_status
 from models.errors import ToolError, create_internal_error
+from models.status import JobTrackerStatus
+from pydantic import ValidationError
+from schemas.finalize_resume_batch import FinalizeResumeBatchRequest, FinalizeResumeBatchResponse
+from utils.artifact_paths import resolve_resume_tex_path
+from utils.finalize_validators import validate_resume_written_guardrails, validate_tracker_exists
 from utils.pydantic_error_mapper import map_pydantic_validation_error
+from utils.tracker_parser import resolve_resume_pdf_path_from_tracker
+from utils.tracker_sync import update_tracker_status
+from utils.validation import (
+    get_current_utc_timestamp,
+    validate_finalize_item,
+    validate_finalize_resume_batch_parameters,
+)
 
 
 def generate_run_id() -> str:
@@ -239,7 +239,7 @@ def process_item_finalize(
 
         # Step 2: Update tracker frontmatter status
         try:
-            update_tracker_status(tracker_path, "Resume Written")
+            update_tracker_status(tracker_path, JobTrackerStatus.RESUME_WRITTEN)
 
             # Success: both DB and tracker updated
             return {

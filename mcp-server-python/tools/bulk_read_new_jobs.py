@@ -6,16 +6,14 @@ and schema mapping to provide a complete read-only batch retrieval tool
 for jobs with status='new'.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
-from pydantic import ValidationError
-
-from schemas.bulk_read_new_jobs import BulkReadNewJobsRequest, BulkReadNewJobsResponse
-from utils.cursor import decode_cursor
 from db.jobs_reader import get_connection, query_new_jobs
-from utils.pagination import paginate_results
-from models.job import to_job_schema
 from models.errors import ToolError, create_internal_error
+from pydantic import ValidationError
+from schemas.bulk_read_new_jobs import BulkReadNewJobsRequest, BulkReadNewJobsResponse, JobRecord
+from utils.cursor import decode_cursor
+from utils.pagination import paginate_results
 from utils.pydantic_error_mapper import map_pydantic_validation_error
 
 
@@ -79,9 +77,9 @@ def bulk_read_new_jobs(args: Dict[str, Any]) -> Dict[str, Any]:
         # Returns (page, has_more, next_cursor)
         page, has_more, next_cursor = paginate_results(rows, request.limit)
 
-        # Step 5: Map database rows to stable output schema
-        # Ensures only fixed fields are included, no arbitrary columns
-        jobs = [to_job_schema(row) for row in page]
+        # Step 5: Map database rows to stable output schema via Pydantic
+        # JobRecord ignores extra columns and normalises empty strings to None
+        jobs = [JobRecord.model_validate(row) for row in page]
 
         # Step 6: Build and return response
         return BulkReadNewJobsResponse(

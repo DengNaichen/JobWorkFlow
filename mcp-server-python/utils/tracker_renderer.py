@@ -5,8 +5,10 @@ This module provides functions to render stable tracker markdown files
 with required frontmatter fields and section structure.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 import yaml
+from models.status import JobTrackerStatus
 
 
 def render_tracker_markdown(job: Dict[str, Any], plan: Dict[str, Any]) -> str:
@@ -76,7 +78,7 @@ def render_tracker_markdown(job: Dict[str, Any], plan: Dict[str, Any]) -> str:
         "job_id": job["job_id"],
         "company": job["company"],
         "position": job["title"],
-        "status": "Reviewed",  # Initial tracker status
+        "status": JobTrackerStatus.REVIEWED.value,  # Initial tracker status
         "application_date": application_date,
         "reference_link": job["url"],
         "resume_path": plan["resume_path"],

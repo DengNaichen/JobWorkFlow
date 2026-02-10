@@ -4,13 +4,14 @@ Unit tests for database reader layer.
 Tests connection management, path resolution, and query execution.
 """
 
-import pytest
 import sqlite3
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
-from db.jobs_reader import resolve_db_path, get_connection, query_new_jobs
-from models.errors import ToolError, ErrorCode
+import pytest
+from db.jobs_reader import get_connection, query_new_jobs, resolve_db_path
+from models.errors import ErrorCode, ToolError
+from models.status import JobDbStatus
 
 
 class TestResolveDbPath:
@@ -225,9 +226,9 @@ class TestQueryNewJobs:
         """Test query filters by status='new'."""
         db_path = tmp_path / "test.db"
         jobs = [
-            {"url": "http://example.com/1", "status": "new", "title": "Job 1"},
-            {"url": "http://example.com/2", "status": "new", "title": "Job 2"},
-            {"url": "http://example.com/3", "status": "applied", "title": "Job 3"},
+            {"url": "http://example.com/1", "status": JobDbStatus.NEW, "title": "Job 1"},
+            {"url": "http://example.com/2", "status": JobDbStatus.NEW, "title": "Job 2"},
+            {"url": "http://example.com/3", "status": JobDbStatus.APPLIED, "title": "Job 3"},
             {"url": "http://example.com/4", "status": "rejected", "title": "Job 4"},
         ]
         self.create_test_db(db_path, jobs)
@@ -236,7 +237,7 @@ class TestQueryNewJobs:
             results = query_new_jobs(conn, limit=50)
 
         assert len(results) == 2
-        assert all(r["status"] == "new" for r in results)
+        assert all(r["status"] == JobDbStatus.NEW for r in results)
         assert {r["title"] for r in results} == {"Job 1", "Job 2"}
 
     def test_query_respects_limit(self, tmp_path):
@@ -492,10 +493,10 @@ class TestQueryShortlistJobs:
         """Test query filters by status='shortlist'."""
         db_path = tmp_path / "test.db"
         jobs = [
-            {"url": "http://example.com/1", "status": "shortlist", "title": "Job 1"},
-            {"url": "http://example.com/2", "status": "shortlist", "title": "Job 2"},
-            {"url": "http://example.com/3", "status": "new", "title": "Job 3"},
-            {"url": "http://example.com/4", "status": "applied", "title": "Job 4"},
+            {"url": "http://example.com/1", "status": JobDbStatus.SHORTLIST, "title": "Job 1"},
+            {"url": "http://example.com/2", "status": JobDbStatus.SHORTLIST, "title": "Job 2"},
+            {"url": "http://example.com/3", "status": JobDbStatus.NEW, "title": "Job 3"},
+            {"url": "http://example.com/4", "status": JobDbStatus.APPLIED, "title": "Job 4"},
         ]
         self.create_test_db(db_path, jobs)
 
@@ -505,14 +506,14 @@ class TestQueryShortlistJobs:
             results = query_shortlist_jobs(conn, limit=50)
 
         assert len(results) == 2
-        assert all(r["status"] == "shortlist" for r in results)
+        assert all(r["status"] == JobDbStatus.SHORTLIST for r in results)
         assert {r["title"] for r in results} == {"Job 1", "Job 2"}
 
     def test_query_respects_limit(self, tmp_path):
         """Test query respects the limit parameter."""
         db_path = tmp_path / "test.db"
         jobs = [
-            {"url": f"http://example.com/{i}", "title": f"Job {i}", "status": "shortlist"}
+            {"url": f"http://example.com/{i}", "title": f"Job {i}", "status": JobDbStatus.SHORTLIST}
             for i in range(10)
         ]
         self.create_test_db(db_path, jobs)

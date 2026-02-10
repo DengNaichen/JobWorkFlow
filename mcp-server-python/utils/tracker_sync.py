@@ -5,12 +5,12 @@ This module provides functions to safely update tracker frontmatter status
 while preserving all other frontmatter fields and body content.
 """
 
-from pathlib import Path
-from typing import Dict, Any
 import os
 import tempfile
-import yaml
+from pathlib import Path
+from typing import Any, Dict
 
+import yaml
 from utils.path_resolution import resolve_repo_relative_path
 
 
@@ -60,7 +60,9 @@ def update_tracker_status(tracker_path: str, new_status: str) -> None:
     frontmatter, body = _extract_frontmatter_and_body(content)
 
     # Update only the status field (Requirement 7.1, 7.4)
-    frontmatter["status"] = new_status
+    # Convert Enum members to plain strings so PyYAML serializes them
+    # as scalars rather than tagged Python objects.
+    frontmatter["status"] = new_status.value if hasattr(new_status, "value") else new_status
 
     # Render updated tracker content
     updated_content = _render_tracker_content(frontmatter, body)

@@ -5,13 +5,13 @@ Tests that the server.py file correctly registers the bulk_update_job_status too
 with proper metadata and that the tool can be invoked through the MCP interface.
 """
 
-import sqlite3
 import os
+import sqlite3
 import tempfile
 
 import pytest
-
-from server import mcp, bulk_update_job_status_tool
+from models.status import JobDbStatus
+from server import bulk_update_job_status_tool, mcp
 
 
 class TestBulkUpdateServerIntegration:
@@ -96,7 +96,7 @@ class TestBulkUpdateServerIntegration:
         """Test that the tool function can be called directly."""
         # Call the tool function directly
         result = bulk_update_job_status_tool(
-            updates=[{"id": 1, "status": "shortlist"}], db_path=temp_db
+            updates=[{"id": 1, "status": JobDbStatus.SHORTLIST}], db_path=temp_db
         )
 
         # Should succeed
@@ -110,9 +110,9 @@ class TestBulkUpdateServerIntegration:
         """Test that the tool function handles multiple updates."""
         result = bulk_update_job_status_tool(
             updates=[
-                {"id": 1, "status": "shortlist"},
-                {"id": 2, "status": "reviewed"},
-                {"id": 3, "status": "reject"},
+                {"id": 1, "status": JobDbStatus.SHORTLIST},
+                {"id": 2, "status": JobDbStatus.REVIEWED},
+                {"id": 3, "status": JobDbStatus.REJECT},
             ],
             db_path=temp_db,
         )
@@ -149,7 +149,7 @@ class TestBulkUpdateServerIntegration:
     def test_tool_function_handles_nonexistent_job(self, temp_db):
         """Test that the tool function handles nonexistent job IDs."""
         result = bulk_update_job_status_tool(
-            updates=[{"id": 999, "status": "shortlist"}], db_path=temp_db
+            updates=[{"id": 999, "status": JobDbStatus.SHORTLIST}], db_path=temp_db
         )
 
         # Should return per-item failure
@@ -162,7 +162,8 @@ class TestBulkUpdateServerIntegration:
         """Test that the tool function returns structured database errors."""
         # Call with non-existent database
         result = bulk_update_job_status_tool(
-            updates=[{"id": 1, "status": "shortlist"}], db_path="/nonexistent/path/to/db.db"
+            updates=[{"id": 1, "status": JobDbStatus.SHORTLIST}],
+            db_path="/nonexistent/path/to/db.db",
         )
 
         # Should return error structure
@@ -182,8 +183,8 @@ class TestBulkUpdateServerIntegration:
         # Attempt batch with one invalid update
         result = bulk_update_job_status_tool(
             updates=[
-                {"id": 1, "status": "shortlist"},  # Valid
-                {"id": 999, "status": "reviewed"},  # Invalid (doesn't exist)
+                {"id": 1, "status": JobDbStatus.SHORTLIST},  # Valid
+                {"id": 999, "status": JobDbStatus.REVIEWED},  # Invalid (doesn't exist)
             ],
             db_path=temp_db,
         )
@@ -203,7 +204,7 @@ class TestBulkUpdateServerIntegration:
         """Test that the tool function supports idempotent updates."""
         # Update job to its current status
         result = bulk_update_job_status_tool(
-            updates=[{"id": 1, "status": "new"}],  # Job 1 already has status 'new'
+            updates=[{"id": 1, "status": JobDbStatus.NEW}],  # Job 1 already has status 'new'
             db_path=temp_db,
         )
 
@@ -216,9 +217,9 @@ class TestBulkUpdateServerIntegration:
         """Test that all jobs in a batch get the same timestamp."""
         result = bulk_update_job_status_tool(
             updates=[
-                {"id": 1, "status": "shortlist"},
-                {"id": 2, "status": "reviewed"},
-                {"id": 3, "status": "reject"},
+                {"id": 1, "status": JobDbStatus.SHORTLIST},
+                {"id": 2, "status": JobDbStatus.REVIEWED},
+                {"id": 3, "status": JobDbStatus.REJECT},
             ],
             db_path=temp_db,
         )
@@ -237,7 +238,7 @@ class TestBulkUpdateServerIntegration:
     def test_tool_function_write_only_guarantee(self, temp_db):
         """Test that the tool function doesn't return job data."""
         result = bulk_update_job_status_tool(
-            updates=[{"id": 1, "status": "shortlist"}], db_path=temp_db
+            updates=[{"id": 1, "status": JobDbStatus.SHORTLIST}], db_path=temp_db
         )
 
         # Should not contain job details (title, company, description, etc.)
@@ -299,7 +300,7 @@ class TestBulkUpdateServerIntegration:
         """Test that the server module can be imported without errors."""
         # This test verifies that all imports in server.py are valid
         # and that the module initializes correctly
-        from server import mcp, bulk_update_job_status_tool, main
+        from server import bulk_update_job_status_tool, main, mcp
 
         assert mcp is not None
         assert bulk_update_job_status_tool is not None

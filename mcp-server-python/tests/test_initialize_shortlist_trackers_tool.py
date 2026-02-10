@@ -7,7 +7,9 @@ tracker planning, rendering, and atomic file operations.
 
 import sqlite3
 from pathlib import Path
+
 import pytest
+from models.status import JobDbStatus
 from tools.initialize_shortlist_trackers import initialize_shortlist_trackers
 
 
@@ -1137,6 +1139,6 @@ Existing legacy tracker.
         conn.close()
 
         for job_id, status in status_rows:
-            assert status == "shortlist", (
-                f"Job {job_id} status changed from 'shortlist' to '{status}'"
+            assert status == JobDbStatus.SHORTLIST, (
+                f"Job {job_id} status changed from '{JobDbStatus.SHORTLIST}' to '{status}'"
             )

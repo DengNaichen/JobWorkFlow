@@ -6,12 +6,12 @@ database reading, pagination, and schema mapping.
 """
 
 import sqlite3
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
-
-from tools.bulk_read_new_jobs import bulk_read_new_jobs
 from models.errors import ErrorCode
+from models.status import JobDbStatus
+from tools.bulk_read_new_jobs import bulk_read_new_jobs
 
 
 class TestBulkReadNewJobsIntegration:
@@ -53,7 +53,7 @@ class TestBulkReadNewJobsIntegration:
                     job["url"],  # Required
                     job.get("location", ""),
                     job.get("source", ""),
-                    job.get("status", "new"),
+                    job.get("status", JobDbStatus.NEW),
                     job.get("captured_at", datetime.now(timezone.utc).isoformat()),
                     "{}",  # payload_json
                     datetime.now(timezone.utc).isoformat(),
@@ -192,7 +192,7 @@ class TestBulkReadNewJobsIntegration:
         # Create database with only non-new jobs
         db_path = tmp_path / "test.db"
         jobs = [
-            {"url": "http://example.com/1", "status": "applied"},
+            {"url": "http://example.com/1", "status": JobDbStatus.APPLIED},
             {"url": "http://example.com/2", "status": "rejected"},
         ]
         self.create_test_db(db_path, jobs)
@@ -251,7 +251,7 @@ class TestBulkReadNewJobsIntegration:
         assert job["url"] == "http://example.com/1"
         assert job["location"] == "Toronto, ON"
         assert job["source"] == "linkedin"
-        assert job["status"] == "new"
+        assert job["status"] == JobDbStatus.NEW
 
     def test_tool_handles_missing_fields(self, tmp_path):
         """Test tool handles missing/null fields correctly."""
@@ -515,7 +515,7 @@ class TestBoundaryBehavior:
                     job["url"],  # Required
                     job.get("location", ""),
                     job.get("source", ""),
-                    job.get("status", "new"),
+                    job.get("status", JobDbStatus.NEW),
                     job.get("captured_at", datetime.now(timezone.utc).isoformat()),
                     "{}",  # payload_json
                     datetime.now(timezone.utc).isoformat(),
@@ -548,7 +548,7 @@ class TestBoundaryBehavior:
                 "description": f"Original Description {i}",
                 "location": f"Original Location {i}",
                 "source": "linkedin",
-                "status": "new",
+                "status": JobDbStatus.NEW,
                 "captured_at": base_time.replace(hour=10 + i).isoformat(),
                 "updated_at": base_time.isoformat(),
             }
@@ -604,7 +604,7 @@ class TestBoundaryBehavior:
 
         # Create jobs with status='new'
         jobs = [
-            {"url": f"http://example.com/{i}", "title": f"Job {i}", "status": "new"}
+            {"url": f"http://example.com/{i}", "title": f"Job {i}", "status": JobDbStatus.NEW}
             for i in range(5)
         ]
         self.create_test_db(db_path, jobs)
@@ -620,7 +620,7 @@ class TestBoundaryBehavior:
         statuses = [row[0] for row in cursor.fetchall()]
         conn.close()
 
-        assert all(status == "new" for status in statuses)
+        assert all(status == JobDbStatus.NEW for status in statuses)
         assert len(statuses) == 5
 
     def test_tool_does_not_write_tracker_files(self, tmp_path):
@@ -852,7 +852,7 @@ class TestBoundaryBehavior:
             {
                 "url": f"http://example.com/{i}",
                 "title": f"Job {i}",
-                "status": "new",
+                "status": JobDbStatus.NEW,
                 "captured_at": base_time.replace(hour=10 + i % 10, minute=i).isoformat(),
             }
             for i in range(20)

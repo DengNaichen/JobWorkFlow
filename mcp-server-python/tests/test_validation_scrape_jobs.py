@@ -8,43 +8,40 @@ hours_old, retry fields, status, and unknown keys.
 """
 
 import pytest
+from config import config
+from models.errors import ErrorCode, ToolError
+from models.status import JobDbStatus
 from utils.validation import (
-    validate_scrape_terms,
-    validate_results_wanted,
+    MAX_HOURS_OLD,
+    MAX_RESULTS_WANTED,
+    MAX_RETRY_BACKOFF,
+    MAX_RETRY_COUNT,
+    MAX_RETRY_SLEEP_SECONDS,
+    MIN_HOURS_OLD,
+    MIN_RESULTS_WANTED,
+    MIN_RETRY_BACKOFF,
+    MIN_RETRY_COUNT,
+    MIN_RETRY_SLEEP_SECONDS,
     validate_hours_old,
+    validate_results_wanted,
+    validate_retry_backoff,
     validate_retry_count,
     validate_retry_sleep_seconds,
-    validate_retry_backoff,
-    validate_scrape_status,
     validate_scrape_jobs_parameters,
-    DEFAULT_SCRAPE_TERMS,
-    DEFAULT_RESULTS_WANTED,
-    MIN_RESULTS_WANTED,
-    MAX_RESULTS_WANTED,
-    DEFAULT_HOURS_OLD,
-    MIN_HOURS_OLD,
-    MAX_HOURS_OLD,
-    DEFAULT_RETRY_COUNT,
-    MIN_RETRY_COUNT,
-    MAX_RETRY_COUNT,
-    DEFAULT_RETRY_SLEEP_SECONDS,
-    MIN_RETRY_SLEEP_SECONDS,
-    MAX_RETRY_SLEEP_SECONDS,
-    DEFAULT_RETRY_BACKOFF,
-    MIN_RETRY_BACKOFF,
-    MAX_RETRY_BACKOFF,
+    validate_scrape_status,
+    validate_scrape_terms,
 )
-from models.errors import ToolError, ErrorCode
 
 
 class TestValidateScrapeTerms:
     """Tests for terms parameter validation."""
 
-    def test_default_terms_when_none(self):
-        """Test that None returns the default terms list."""
+    def test_default_terms_when_none(self, monkeypatch):
+        """Test that None returns the default terms list from config."""
+        test_terms = ["test-term-1", "test-term-2"]
+        monkeypatch.setattr(config, "scrape_terms", test_terms)
         result = validate_scrape_terms(None)
-        assert result == DEFAULT_SCRAPE_TERMS
-        assert result == ["ai engineer", "backend engineer", "machine learning"]
+        assert result == test_terms
 
     def test_valid_single_term(self):
         """Test that single term list is accepted."""
@@ -101,11 +98,11 @@ class TestValidateScrapeTerms:
 class TestValidateResultsWanted:
     """Tests for results_wanted parameter validation."""
 
-    def test_default_results_wanted_when_none(self):
-        """Test that None returns the default results_wanted."""
+    def test_default_results_wanted_when_none(self, monkeypatch):
+        """Test that None returns the default results_wanted from config."""
+        monkeypatch.setattr(config, "scrape_results_wanted", 25)
         result = validate_results_wanted(None)
-        assert result == DEFAULT_RESULTS_WANTED
-        assert result == 20
+        assert result == 25
 
     def test_valid_results_wanted_in_range(self):
         """Test that valid results_wanted within range are accepted."""
@@ -185,11 +182,11 @@ class TestValidateResultsWanted:
 class TestValidateHoursOld:
     """Tests for hours_old parameter validation."""
 
-    def test_default_hours_old_when_none(self):
-        """Test that None returns the default hours_old."""
+    def test_default_hours_old_when_none(self, monkeypatch):
+        """Test that None returns the default hours_old from config."""
+        monkeypatch.setattr(config, "scrape_hours_old", 3)
         result = validate_hours_old(None)
-        assert result == DEFAULT_HOURS_OLD
-        assert result == 2
+        assert result == 3
 
     def test_valid_hours_old_in_range(self):
         """Test that valid hours_old within range are accepted."""
@@ -269,11 +266,11 @@ class TestValidateHoursOld:
 class TestValidateRetryCount:
     """Tests for retry_count parameter validation."""
 
-    def test_default_retry_count_when_none(self):
-        """Test that None returns the default retry_count."""
+    def test_default_retry_count_when_none(self, monkeypatch):
+        """Test that None returns the default retry_count from config."""
+        monkeypatch.setattr(config, "scrape_retry_count", 5)
         result = validate_retry_count(None)
-        assert result == DEFAULT_RETRY_COUNT
-        assert result == 3
+        assert result == 5
 
     def test_valid_retry_count_in_range(self):
         """Test that valid retry_count within range are accepted."""
@@ -335,11 +332,11 @@ class TestValidateRetryCount:
 class TestValidateRetrySleepSeconds:
     """Tests for retry_sleep_seconds parameter validation."""
 
-    def test_default_retry_sleep_seconds_when_none(self):
-        """Test that None returns the default retry_sleep_seconds."""
+    def test_default_retry_sleep_seconds_when_none(self, monkeypatch):
+        """Test that None returns the default retry_sleep_seconds from config."""
+        monkeypatch.setattr(config, "scrape_retry_sleep_seconds", 45.5)
         result = validate_retry_sleep_seconds(None)
-        assert result == DEFAULT_RETRY_SLEEP_SECONDS
-        assert result == 30
+        assert result == 45.5
 
     def test_valid_retry_sleep_seconds_in_range(self):
         """Test that valid retry_sleep_seconds within range are accepted."""
@@ -397,11 +394,11 @@ class TestValidateRetrySleepSeconds:
 class TestValidateRetryBackoff:
     """Tests for retry_backoff parameter validation."""
 
-    def test_default_retry_backoff_when_none(self):
-        """Test that None returns the default retry_backoff."""
+    def test_default_retry_backoff_when_none(self, monkeypatch):
+        """Test that None returns the default retry_backoff from config."""
+        monkeypatch.setattr(config, "scrape_retry_backoff", 2.5)
         result = validate_retry_backoff(None)
-        assert result == DEFAULT_RETRY_BACKOFF
-        assert result == 2
+        assert result == 2.5
 
     def test_valid_retry_backoff_in_range(self):
         """Test that valid retry_backoff within range are accepted."""
@@ -462,13 +459,12 @@ class TestValidateScrapeStatus:
     def test_default_status_when_none(self):
         """Test that None returns the default status 'new'."""
         result = validate_scrape_status(None)
-        assert result == "new"
+        assert result == JobDbStatus.NEW
 
     def test_valid_statuses(self):
         """Test that all valid status values are accepted."""
-        valid_statuses = ["new", "shortlist", "reviewed", "reject", "resume_written", "applied"]
-        for status in valid_statuses:
-            result = validate_scrape_status(status)
+        for status in JobDbStatus:
+            result = validate_scrape_status(status.value)
             assert result == status
 
     def test_invalid_status_value_raises_error(self):
@@ -522,24 +518,37 @@ class TestValidateScrapeStatus:
 class TestValidateScrapeJobsParameters:
     """Tests for validating all scrape_jobs parameters together."""
 
-    def test_all_defaults(self):
-        """Test validation with all default values."""
+    def test_all_defaults(self, monkeypatch):
+        """Test validation with all default values from config."""
+        monkeypatch.setattr(config, "scrape_terms", ["a", "b"])
+        monkeypatch.setattr(config, "scrape_location", "Test Location")
+        monkeypatch.setattr(config, "scrape_sites", ["site1"])
+        monkeypatch.setattr(config, "scrape_results_wanted", 99)
+        monkeypatch.setattr(config, "scrape_hours_old", 9)
+        monkeypatch.setattr(config, "scrape_require_description", False)
+        monkeypatch.setattr(config, "scrape_preflight_host", "test.host")
+        monkeypatch.setattr(config, "scrape_retry_count", 8)
+        monkeypatch.setattr(config, "scrape_retry_sleep_seconds", 7.0)
+        monkeypatch.setattr(config, "scrape_retry_backoff", 6.0)
+        monkeypatch.setattr(config, "scrape_save_capture_json", False)
+        monkeypatch.setattr(config, "scrape_capture_dir", "test/dir")
+
         result = validate_scrape_jobs_parameters()
 
-        assert result["terms"] == DEFAULT_SCRAPE_TERMS
-        assert result["location"] == "Ontario, Canada"
-        assert result["sites"] == ["linkedin"]
-        assert result["results_wanted"] == 20
-        assert result["hours_old"] == 2
+        assert result["terms"] == ["a", "b"]
+        assert result["location"] == "Test Location"
+        assert result["sites"] == ["site1"]
+        assert result["results_wanted"] == 99
+        assert result["hours_old"] == 9
         assert result["db_path"] is None
-        assert result["status"] == "new"
-        assert result["require_description"] is True
-        assert result["preflight_host"] == "www.linkedin.com"
-        assert result["retry_count"] == 3
-        assert result["retry_sleep_seconds"] == 30
-        assert result["retry_backoff"] == 2
-        assert result["save_capture_json"] is True
-        assert result["capture_dir"] == "data/capture"
+        assert result["status"] == JobDbStatus.NEW
+        assert result["require_description"] is False
+        assert result["preflight_host"] == "test.host"
+        assert result["retry_count"] == 8
+        assert result["retry_sleep_seconds"] == 7.0
+        assert result["retry_backoff"] == 6.0
+        assert result["save_capture_json"] is False
+        assert result["capture_dir"] == "test/dir"
         assert result["dry_run"] is False
 
     def test_all_valid_custom_values(self):

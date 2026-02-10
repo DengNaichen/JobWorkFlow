@@ -6,7 +6,9 @@ consistent handling of missing values and JSON serialization.
 """
 
 import json
+
 from models.job import to_job_schema
+from models.status import JobDbStatus
 
 
 class TestToJobSchema:
@@ -23,7 +25,7 @@ class TestToJobSchema:
             "url": "https://www.linkedin.com/jobs/view/4368663835/",
             "location": "Toronto, ON",
             "source": "linkedin",
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": "2026-02-04T03:47:36.966Z",
         }
 
@@ -38,7 +40,7 @@ class TestToJobSchema:
         assert result["url"] == "https://www.linkedin.com/jobs/view/4368663835/"
         assert result["location"] == "Toronto, ON"
         assert result["source"] == "linkedin"
-        assert result["status"] == "new"
+        assert result["status"] == JobDbStatus.NEW
         assert result["captured_at"] == "2026-02-04T03:47:36.966Z"
 
     def test_missing_fields_return_none(self):
@@ -46,7 +48,7 @@ class TestToJobSchema:
         row = {
             "id": 456,
             "url": "https://example.com/job",
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
@@ -55,7 +57,7 @@ class TestToJobSchema:
         # Present fields should have values
         assert result["id"] == 456
         assert result["url"] == "https://example.com/job"
-        assert result["status"] == "new"
+        assert result["status"] == JobDbStatus.NEW
         assert result["captured_at"] == "2026-02-05T10:00:00.000Z"
 
         # Missing fields should be None
@@ -77,7 +79,7 @@ class TestToJobSchema:
             "url": "https://example.com/job",
             "location": None,
             "source": None,
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": None,
         }
 
@@ -92,7 +94,7 @@ class TestToJobSchema:
         assert result["url"] == "https://example.com/job"
         assert result["location"] is None
         assert result["source"] is None
-        assert result["status"] == "new"
+        assert result["status"] == JobDbStatus.NEW
         assert result["captured_at"] is None
 
     def test_empty_strings_return_none(self):
@@ -106,7 +108,7 @@ class TestToJobSchema:
             "url": "https://example.com/job",
             "location": "",
             "source": "",
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
@@ -121,7 +123,7 @@ class TestToJobSchema:
         assert result["url"] == "https://example.com/job"
         assert result["location"] is None
         assert result["source"] is None
-        assert result["status"] == "new"
+        assert result["status"] == JobDbStatus.NEW
         assert result["captured_at"] == "2026-02-05T10:00:00.000Z"
 
     def test_schema_stability_no_extra_fields(self):
@@ -135,7 +137,7 @@ class TestToJobSchema:
             "url": "https://example.com/job",
             "location": "San Francisco, CA",
             "source": "indeed",
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": "2026-02-05T10:00:00.000Z",
             # Extra fields that should NOT appear in output
             "extra_field": "should not appear",
@@ -176,7 +178,7 @@ class TestToJobSchema:
             "url": "https://example.com/job",
             "location": "New York, NY",
             "source": "glassdoor",
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
@@ -201,7 +203,7 @@ class TestToJobSchema:
             "url": "https://example.com/job",
             "location": None,
             "source": None,
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": None,
         }
 
@@ -229,7 +231,7 @@ class TestToJobSchema:
             "url": "https://example.com/job?id=123&ref=abc",
             "location": "City, ST",
             "source": "source/name",
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
@@ -257,7 +259,7 @@ class TestToJobSchema:
             "url": "https://example.com/job",
             "location": "Montréal, QC",
             "source": "linkedin",
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
@@ -286,7 +288,7 @@ class TestToJobSchema:
             "url": "https://example.com/job",
             "location": "Location",
             "source": "source",
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
@@ -311,7 +313,7 @@ class TestToJobSchema:
             "url": "https://example.com/job",
             "location": "Location",
             "source": "source",
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
@@ -336,7 +338,7 @@ class TestToJobSchema:
             "url": "https://example.com/job",
             "location": "Location",
             "source": "source",
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": "2026-02-05T10:00:00.000Z",
         }
 
@@ -427,7 +429,7 @@ class TestSchemaRequirements:
     def test_requirement_3_3_missing_values_consistent(self):
         """Requirement 3.3: Handle missing values consistently."""
         # Test with missing fields
-        row1 = {"id": 1, "url": "test", "status": "new"}
+        row1 = {"id": 1, "url": "test", "status": JobDbStatus.NEW}
         result1 = to_job_schema(row1)
 
         # Test with None fields
@@ -440,7 +442,7 @@ class TestSchemaRequirements:
             "url": "test",
             "location": None,
             "source": None,
-            "status": "new",
+            "status": JobDbStatus.NEW,
             "captured_at": None,
         }
         result2 = to_job_schema(row2)

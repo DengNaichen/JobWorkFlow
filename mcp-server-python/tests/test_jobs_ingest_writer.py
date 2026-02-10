@@ -5,17 +5,18 @@ Validates schema bootstrap, path resolution, insert/dedupe semantics,
 and boundary behavior for ingestion operations.
 """
 
-import pytest
 import sqlite3
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
+import pytest
 from db.jobs_ingest_writer import (
-    resolve_db_path,
-    ensure_parent_dirs,
-    bootstrap_schema,
     JobsIngestWriter,
+    bootstrap_schema,
+    ensure_parent_dirs,
+    resolve_db_path,
 )
+from models.status import JobDbStatus
 
 
 class TestResolveDbPath:
@@ -557,7 +558,7 @@ class TestBoundaryBehavior:
         cursor = conn.execute(
             "SELECT status FROM jobs WHERE url = ?", ("https://example.com/job1",)
         )
-        assert cursor.fetchone()[0] == "new"
+        assert cursor.fetchone()[0] == JobDbStatus.NEW
         conn.close()
 
     def test_valid_status_override(self, tmp_path):
@@ -565,7 +566,7 @@ class TestBoundaryBehavior:
         db_path = tmp_path / "test.db"
         now = datetime.now(timezone.utc).isoformat()
 
-        valid_statuses = ["new", "shortlist", "reviewed", "reject", "resume_written", "applied"]
+        valid_statuses = list(JobDbStatus)
 
         for idx, status in enumerate(valid_statuses):
             record = {

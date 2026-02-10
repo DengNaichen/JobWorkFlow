@@ -1,20 +1,18 @@
 """
 LaTeX placeholder scanner for resume quality guardrails.
 
-This module provides utilities to scan LaTeX files for placeholder tokens
-that indicate incomplete or draft content. Used by multiple tools to ensure
-resume quality before finalization.
+This module detects unfinished placeholder content in resume.tex files.
+Per current project convention, placeholder labels are identified by the
+stable marker substring: ``BULLET-POINT``.
 """
 
 from pathlib import Path
 from typing import List, Tuple, Optional
 
 
-# Placeholder tokens that must not be present in finalized resume.tex
+# Single stable placeholder marker agreed by project convention.
 PLACEHOLDER_TOKENS = [
-    "PROJECT-AI-",
-    "PROJECT-BE-",
-    "WORK-BULLET-POINT-",
+    "BULLET-POINT",
 ]
 
 
@@ -37,7 +35,7 @@ def scan_tex_for_placeholders(tex_path: str) -> Tuple[bool, Optional[str], List[
     Requirements:
         - 5.4: Scan resume.tex for placeholder tokens
         - 5.5: Block update when any guardrail check fails
-        - 5.6: Placeholder tokens include PROJECT-AI-, PROJECT-BE-, WORK-BULLET-POINT-
+        - 5.6: Placeholder tokens include BULLET-POINT
 
     Examples:
         >>> # Clean TEX file
@@ -46,8 +44,8 @@ def scan_tex_for_placeholders(tex_path: str) -> Tuple[bool, Optional[str], List[
 
         >>> # TEX with placeholders
         >>> scan_tex_for_placeholders("data/applications/draft/resume/resume.tex")
-        (False, 'resume.tex contains placeholder tokens: PROJECT-AI-, WORK-BULLET-POINT-',
-         ['PROJECT-AI-', 'WORK-BULLET-POINT-'])
+        (False, 'resume.tex contains placeholder tokens: BULLET-POINT',
+         ['BULLET-POINT'])
     """
     tex_file = Path(tex_path)
 
@@ -57,7 +55,7 @@ def scan_tex_for_placeholders(tex_path: str) -> Tuple[bool, Optional[str], List[
     except (OSError, IOError) as e:
         return False, f"Failed to read resume.tex: {str(e)}", []
 
-    # Search for placeholder tokens
+    # Search for placeholder marker.
     found_tokens = []
     for token in PLACEHOLDER_TOKENS:
         if token in content:
@@ -81,7 +79,7 @@ def get_placeholder_tokens() -> List[str]:
 
     Examples:
         >>> tokens = get_placeholder_tokens()
-        >>> "PROJECT-AI-" in tokens
+        >>> "BULLET-POINT" in tokens
         True
     """
     return PLACEHOLDER_TOKENS.copy()
